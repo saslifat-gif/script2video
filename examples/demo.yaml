@@ -1,0 +1,19 @@
+title: "Script2Video Stage 1 Demo"
+language: en-US
+engine: kokoro
+voice: af_heart
+
+scenes:
+  - id: intro
+    text: >-
+      Welcome. This short example turns a structured script into clean,
+      reusable narration for a future video.
+    pause_after_ms: 500
+
+  - id: explanation
+    text: >-
+      Each scene is rendered separately, so changing one paragraph does not
+      require regenerating the entire voice track.
+    speed: 1.0
+    pause_after_ms: 300
+    notes: "Stage 2 can attach visuals to this scene using manifest timing."
