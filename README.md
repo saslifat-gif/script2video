@@ -1,128 +1,197 @@
 # script2video
 
-Local-first tools for turning a written script into production-ready narration,
-then eventually into a complete video.
+Local-first tools for turning a structured YAML script into narration, timed
+captions, and an editable CapCut package.
 
-## Current scope: M3 CapCut companion
+`script2video` runs speech generation and alignment on your machine. It can
+render narration scene by scene, fit the result to an existing video, and
+produce standard WAV, SRT, and JSON files without modifying CapCut project
+files.
 
-Stage 1 converts a structured YAML script into:
+## Features
 
-- one WAV file per scene;
-- one combined, normalized narration WAV;
-- a JSON manifest containing scene timing and provenance;
-- readable errors for invalid scripts, unsupported voices, and failed synthesis.
+- Generate natural speech locally with [Kokoro](https://github.com/hexgrad/kokoro).
+- Render each scene separately and combine it into one normalized narration.
+- Create editable SRT captions from the exact supplied script.
+- Align captions to speech with MLX Whisper on Apple Silicon.
+- Fit narration to a video's duration within a safe speaking-speed range.
+- Build a CapCut-ready package with audio, captions, and timing metadata.
+- Use a deterministic fake engine for fast, model-free development and tests.
+- Launch an always-on-top macOS companion window for the CapCut workflow.
 
-The project includes a real Kokoro engine and a deterministic fake engine for
-fast development tests. Both use the same engine interface, so additional
-open-source TTS systems can be added without changing the script format or
-orchestration layer.
-
-M3 also creates a CapCut-ready package from a video and script:
-
-- `narration.wav`, optionally fitted to the video's duration;
-- `captions.srt`, with exact audio timing and no more than two display lines;
-- `manifest.json`, containing video, narration, fitting, and timing metadata.
-
-See [docs/stage-1-design.md](docs/stage-1-design.md) for the product and
-technical design, and [examples/demo.yaml](examples/demo.yaml) for the proposed
-input format.
-
-## Install for real speech
-
-Python 3.11 is recommended. Kokoro requires Python 3.10 through 3.12.
-
-```bash
-cd /Users/lifat/Projects/AI/script2video
-/opt/homebrew/Caskroom/miniconda/base/envs/ml/bin/python3.11 -m venv .venv
-.venv/bin/python -m pip install -e '.[kokoro,alignment]'
-```
-
-The Kokoro dependency currently installs a bundled eSpeak NG loader on macOS.
-If that loader is unavailable on another setup, install the system package for
-English out-of-dictionary fallback and several non-English languages:
-
-```bash
-brew install espeak-ng
-```
-
-The first real render downloads the Kokoro model and selected voice from
-Hugging Face. Later runs reuse the local model cache.
-
-## CLI
+## How it works
 
 ```text
-script2video voices --engine kokoro
-script2video validate examples/demo.yaml
-script2video render examples/minecraft.yaml --output builds/minecraft-kokoro
+YAML script + source video
+          |
+          v
+  narration generation
+          |
+          +-- scene WAV files
+          +-- combined narration.wav
+          +-- captions.srt
+          +-- manifest.json
 ```
 
-Supported project language codes are `en-US`, `en-GB`, `es-ES`, `fr-FR`,
-`hi-IN`, `it-IT`, `ja-JP`, `pt-BR`, and `zh-CN`. A voice must belong to the
-selected language. Run `script2video voices --engine kokoro` to see all 54
-published voice IDs.
+## Requirements
 
-## CapCut package
+- Python 3.11 recommended (Kokoro supports Python 3.10–3.12)
+- macOS with Apple Silicon for MLX Whisper alignment
+- `ffprobe` for measuring video duration in the CapCut workflow
 
-Create narration and subtitles matched to a video:
+Install `ffmpeg` (which includes `ffprobe`) and the optional eSpeak NG fallback
+with Homebrew:
 
 ```bash
-.venv/bin/script2video capcut examples/minecraft.yaml \
+brew install ffmpeg espeak-ng
+```
+
+## Installation
+
+From the repository root:
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[kokoro,alignment]"
+```
+
+The first real render downloads the selected Kokoro voice and model from
+Hugging Face. The first aligned render also downloads the selected Whisper
+model. Later runs reuse the local caches.
+
+## Quick start
+
+Validate a script and render its narration:
+
+```bash
+script2video validate examples/demo.yaml
+script2video voices --engine kokoro
+script2video render examples/demo.yaml --output builds/demo
+```
+
+A script is a small YAML file with project settings and ordered scenes:
+
+```yaml
+title: Script2Video Demo
+language: en-US
+engine: kokoro
+voice: af_heart
+
+scenes:
+  - id: intro
+    text: Welcome. This script becomes locally generated narration.
+    pause_after_ms: 500
+
+  - id: explanation
+    text: Each scene is rendered separately and recorded in the manifest.
+    speed: 1.0
+```
+
+See [`examples/demo.yaml`](examples/demo.yaml) for a complete example.
+
+## Create a CapCut package
+
+Generate narration and subtitles timed to an existing video:
+
+```bash
+script2video capcut examples/minecraft.yaml \
   --video /path/to/video.mp4 \
   --output builds/minecraft-capcut
 ```
 
-AI word alignment is enabled by default with MLX Whisper `tiny.en` on Apple
-Silicon. It listens to the generated narration and measures word timestamps,
-then reconciles those measurements to the exact supplied script. This prevents
-recognition mistakes from changing subtitle text or shifting later cues. The
-first aligned render downloads the selected Whisper timing model. Use `--no-align`
-for the non-AI exact-block fallback, or `--align-model base.en` for a larger
-English alignment model.
+The output directory contains:
 
-By default, the command measures the video with `ffprobe` and adjusts each
-scene's Kokoro speed proportionally. It refuses a fit that would require a
-speed outside `0.50` through `2.00`, because extreme fitting would make the
-voice difficult to understand. Use `--no-fit` to preserve the script speeds.
+```text
+builds/minecraft-capcut/
+├── narration.wav
+├── captions.srt
+├── manifest.json
+└── scenes/
+    └── 001-*.wav
+```
 
-To import the result into CapCut Desktop:
+By default, the command:
+
+1. Measures the video duration with `ffprobe`.
+2. Adjusts scene speeds to fit the narration to the video.
+3. Aligns the supplied text to the generated speech with MLX Whisper.
+4. Writes editable audio, captions, and timing metadata.
+
+The fitter rejects speeds outside `0.50`–`2.00` to keep narration
+understandable. Use `--no-fit` to preserve script speeds, `--no-align` for the
+exact-block timing fallback, or `--align-model base.en` for a larger English
+alignment model.
+
+To use the package in CapCut Desktop:
 
 1. Import `narration.wav` and place it at timeline time zero.
-2. Open **Captions → Add Captions**, then import the UTF-8 `captions.srt` file.
-3. Keep the captions at timeline time zero and apply the desired caption style.
+2. Open **Captions → Add Captions** and import `captions.srt` as UTF-8.
+3. Keep the captions at timeline time zero and apply your preferred style.
 
-The caption blocks remain editable inside CapCut.
+For implementation details, see
+[`docs/m3-capcut.md`](docs/m3-capcut.md).
 
-## Floating companion
+## Companion window
 
-Launch the always-on-top macOS window:
-
-```bash
-.venv/bin/script2video companion
-```
-
-Choose the YAML script, source video, output folder, optional voice, and
-alignment model. The window can stay above CapCut while it generates the
-package, opens the output folder, and launches CapCut. It is a companion window
-rather than an injected CapCut plugin because CapCut does not expose a
-documented desktop plugin SDK.
-
-The deterministic fake engine writes valid WAV files containing
-short test tones, allowing the complete pipeline to be developed and tested
-without downloading a model.
-
-Run the CLI from a source checkout:
+Launch the macOS companion:
 
 ```bash
-PYTHONPATH=src python -m script2video --help
-PYTHONPATH=src python -m script2video render examples/demo.yaml \
-  --engine fake --voice test_narrator --output builds/demo
+script2video companion
 ```
 
-Run the dependency-light M1 tests:
+The always-on-top window lets you choose a YAML script, source video, output
+folder, voice, and alignment model. It can generate the package, open the
+output folder, and launch CapCut.
+
+The companion exports standard files instead of editing CapCut projects
+directly because CapCut does not provide a documented desktop plugin SDK.
+
+## Languages and voices
+
+Supported project language codes are `en-US`, `en-GB`, `es-ES`, `fr-FR`,
+`hi-IN`, `it-IT`, `ja-JP`, `pt-BR`, and `zh-CN`. The selected voice must support
+the project language.
+
+List all voices exposed by Kokoro:
 
 ```bash
-PYTHONPATH=src python -m unittest discover -s tests -v
+script2video voices --engine kokoro
 ```
 
-Stage 1 is complete when `render` can reliably create deterministic narration
-assets from a valid script on Apple Silicon, without using a hosted API.
+## Development
+
+Install the development dependencies:
+
+```bash
+python -m pip install -e ".[dev]"
+```
+
+Run the complete test suite:
+
+```bash
+python -m pytest
+```
+
+For quick testing without downloading speech models, override the script's
+engine with the deterministic fake engine:
+
+```bash
+script2video render examples/demo.yaml \
+  --engine fake \
+  --voice test_narrator \
+  --output builds/demo-fake
+```
+
+The fake engine writes valid WAV files containing short test tones, so the
+pipeline can be tested end to end without a hosted API or model download.
+
+## Documentation
+
+- [Stage 1 design](docs/stage-1-design.md)
+- [CapCut package design](docs/m3-capcut.md)
+
+## License
+
+This project is licensed under the terms in [`LICENSE`](LICENSE).
