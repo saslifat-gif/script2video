@@ -1,5 +1,7 @@
 # script2video
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 Local-first tools for turning a structured YAML script into narration, timed
 captions, and an editable CapCut package.
 
@@ -35,6 +37,18 @@ AI word alignment requires a Mac with Apple Silicon. On an Intel Mac, install
 
 ### Windows PowerShell
 
+When using a VS Code Remote Tunnel, first confirm that the terminal belongs to
+the Windows machine. Its prompt should look like `PS C:\...>`, not a macOS path
+such as `/Users/...`. You can verify the active machine with:
+
+```powershell
+Get-Location
+py -3.11 -c "import platform, sys; print(sys.executable); print(platform.platform())"
+```
+
+If the output mentions macOS or `/Users`, reconnect VS Code to the Windows
+tunnel and open a new terminal before installing anything.
+
 Install Python and FFmpeg with Windows Package Manager, then restart PowerShell
 so `ffprobe` is available on `PATH`:
 
@@ -51,6 +65,11 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install ".[kokoro]"
 ```
+
+Create a separate `.venv` on each computer. Do not copy or synchronize the
+Mac `.venv` to Windows: compiled packages such as `tokenizers`, NumPy, and audio
+libraries contain operating-system-specific files. The repository already
+ignores `.venv/`, so Git and project ZIP files transfer source code only.
 
 MLX Whisper does not run on Windows. The companion disables it automatically
 and uses exact caption-block timing instead.
