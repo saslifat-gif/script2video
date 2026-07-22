@@ -10,95 +10,70 @@ files.
 
 ![Script2Video companion workspace](docs/script2video-companion.png)
 
-## Open the companion UI
+## Install for users
 
-After activating the virtual environment on any supported platform, launch the
-desktop companion with:
+Git is not required. Download the
+[latest project ZIP](https://github.com/saslifat-gif/script2video/archive/refs/heads/main.zip),
+extract it, and open a terminal in the extracted `script2video-main` folder.
+
+`script2video` currently runs as a local Python application. It requires Python
+3.11 and FFmpeg, which provides the `ffprobe` video-inspection command.
+
+### macOS
+
+Install the system dependencies and the application:
 
 ```bash
-script2video companion
+brew install ffmpeg espeak-ng
+python3.11 -m venv .venv
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/python -m pip install ".[kokoro,alignment]"
 ```
 
-From a source checkout, you can also open it without activating the environment.
+AI word alignment requires a Mac with Apple Silicon. On an Intel Mac, install
+`.[kokoro]` instead and use the exact caption-timing fallback.
 
-On macOS or Linux:
+### Windows PowerShell
+
+Install Python and FFmpeg with Windows Package Manager, then restart PowerShell
+so `ffprobe` is available on `PATH`:
+
+```powershell
+winget install --exact --id Python.Python.3.11
+winget install --exact --id Gyan.FFmpeg
+```
+
+In the extracted `script2video-main` folder, install the Windows-compatible
+application:
+
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install ".[kokoro]"
+```
+
+MLX Whisper does not run on Windows. The companion disables it automatically
+and uses exact caption-block timing instead.
+
+Kokoro normally supplies its phoneme support through Python dependencies. If a
+voice reports a missing eSpeak library, install the latest Windows MSI from the
+[official eSpeak NG releases](https://github.com/espeak-ng/espeak-ng/releases).
+
+## Open the companion UI
+
+On macOS:
 
 ```bash
 .venv/bin/script2video companion
-.venv/bin/python -m script2video companion
 ```
 
 On Windows PowerShell:
 
 ```powershell
 .\.venv\Scripts\script2video.exe companion
-.\.venv\Scripts\python.exe -m script2video companion
 ```
 
-These methods open the same local, always-on-top workspace. Choose a YAML
-script, source video, and output folder, then select **Generate CapCut Package**.
-
-## Deploy locally
-
-`script2video` is a local CLI and desktop companion rather than a hosted web
-service. A typical deployment is an isolated Python environment on the machine
-where you edit video.
-
-You need Python 3.11 and `ffprobe` for the CapCut workflow.
-
-### macOS
-
-MLX Whisper alignment requires a Mac with Apple Silicon.
-
-```bash
-git clone https://github.com/saslifat-gif/script2video.git
-cd script2video
-
-brew install ffmpeg espeak-ng
-python3.11 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -e ".[kokoro,alignment]"
-```
-
-### Windows PowerShell
-
-Install Python, Git, and FFmpeg with Windows Package Manager, then restart
-PowerShell so `ffprobe` is available on `PATH`:
-
-```powershell
-winget install --exact --id Python.Python.3.11
-winget install --exact --id Git.Git
-winget install --exact --id Gyan.FFmpeg
-```
-
-Clone the project and install the Windows-compatible dependencies. Using the
-virtual environment's Python directly avoids PowerShell execution-policy
-problems:
-
-```powershell
-git clone https://github.com/saslifat-gif/script2video.git
-Set-Location script2video
-
-py -3.11 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install -e ".[kokoro]"
-.\.venv\Scripts\script2video.exe companion
-```
-
-MLX Whisper does not run on Windows, so the companion disables AI alignment
-there and uses exact caption-block timing. For the CLI, add `--no-align`:
-
-```powershell
-.\.venv\Scripts\script2video.exe capcut examples\minecraft.yaml `
-  --video C:\path\to\video.mp4 `
-  --output builds\minecraft-capcut `
-  --no-align
-```
-
-Kokoro normally supplies its phoneme support through Python dependencies. If a
-voice reports a missing eSpeak library, install the latest Windows MSI from the
-[official eSpeak NG releases](https://github.com/espeak-ng/espeak-ng/releases).
+The companion is a local desktop window; no server or browser is required.
 
 The first render downloads the selected Kokoro model and voice from Hugging
 Face. The first aligned render also downloads the selected Whisper model.
@@ -106,8 +81,17 @@ Later runs reuse the local caches.
 
 ## Quick start
 
-Validate the example script, inspect the available voices, and render
-narration:
+1. Open the companion UI.
+2. For **Script**, choose `examples/minecraft.yaml` or your own YAML file.
+3. Choose a source video and output folder.
+4. Select a voice or keep **Use script voice**.
+5. Select **Generate CapCut Package**.
+6. When generation finishes, select **Open Output** or **Open CapCut**.
+
+The output folder contains `narration.wav`, `captions.srt`, `manifest.json`, and
+the individual scene WAV files.
+
+For command-line usage, validate a script and render its narration with:
 
 ```bash
 script2video validate examples/demo.yaml
@@ -238,11 +222,19 @@ script2video voices --engine kokoro
 
 ## Development
 
-Install the development dependencies:
+Git is only needed for contributors who want to modify the source. Clone the
+repository and install it in editable mode:
 
 ```bash
-python -m pip install -e ".[dev]"
+git clone https://github.com/saslifat-gif/script2video.git
+cd script2video
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e ".[dev,kokoro,alignment]"
 ```
+
+On Windows, activate with `.\.venv\Scripts\Activate.ps1` and omit `alignment`
+from the extras.
 
 Run the complete test suite:
 
