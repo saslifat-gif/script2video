@@ -15,22 +15,33 @@ class VideoProbeTests(unittest.TestCase):
             video = Path(directory) / "video.mp4"
             video.touch()
 
-            def runner(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+            def runner(
+                *args: object, **kwargs: object
+            ) -> subprocess.CompletedProcess[str]:
                 return subprocess.CompletedProcess(
-                    args=args, returncode=0, stdout='{"format":{"duration":"12.5"}}'
+                    args=args,
+                    returncode=0,
+                    stdout=(
+                        '{"format":{"duration":"12.5"},'
+                        '"streams":[{"width":1920,"height":1080}]}'
+                    ),
                 )
 
             info = probe_video(video, runner=runner)
 
             self.assertEqual(info.duration_seconds, 12.5)
             self.assertEqual(info.path, video.resolve())
+            self.assertEqual(info.width, 1920)
+            self.assertEqual(info.height, 1080)
 
     def test_rejects_unreadable_video(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             video = Path(directory) / "bad.mp4"
             video.touch()
 
-            def runner(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+            def runner(
+                *args: object, **kwargs: object
+            ) -> subprocess.CompletedProcess[str]:
                 return subprocess.CompletedProcess(
                     args=args, returncode=1, stdout="", stderr="invalid data"
                 )
