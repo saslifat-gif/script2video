@@ -8,6 +8,52 @@ render narration scene by scene, fit the result to an existing video, and
 produce standard WAV, SRT, and JSON files without modifying CapCut project
 files.
 
+## Deploy locally
+
+`script2video` is a local CLI and macOS companion rather than a hosted web
+service. A typical deployment is an isolated Python environment on the machine
+where you edit video.
+
+You need Python 3.11, plus `ffprobe` for the CapCut workflow. MLX Whisper
+alignment requires a Mac with Apple Silicon.
+
+```bash
+git clone https://github.com/saslifat-gif/script2video.git
+cd script2video
+
+brew install ffmpeg espeak-ng
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[kokoro,alignment]"
+```
+
+The first render downloads the selected Kokoro model and voice from Hugging
+Face. The first aligned render also downloads the selected Whisper model.
+Later runs reuse the local caches.
+
+## Quick start
+
+Validate the example script, inspect the available voices, and render
+narration:
+
+```bash
+script2video validate examples/demo.yaml
+script2video voices --engine kokoro
+script2video render examples/demo.yaml --output builds/demo
+```
+
+To create narration and subtitles fitted to an existing video:
+
+```bash
+script2video capcut examples/minecraft.yaml \
+  --video /path/to/video.mp4 \
+  --output builds/minecraft-capcut
+```
+
+The result is ready in `builds/minecraft-capcut/` as `narration.wav`,
+`captions.srt`, `manifest.json`, and individual scene WAV files.
+
 ## Features
 
 - Generate natural speech locally with [Kokoro](https://github.com/hexgrad/kokoro).
@@ -33,45 +79,9 @@ YAML script + source video
           +-- manifest.json
 ```
 
-## Requirements
+## Script format
 
-- Python 3.11 recommended (Kokoro supports Python 3.10–3.12)
-- macOS with Apple Silicon for MLX Whisper alignment
-- `ffprobe` for measuring video duration in the CapCut workflow
-
-Install `ffmpeg` (which includes `ffprobe`) and the optional eSpeak NG fallback
-with Homebrew:
-
-```bash
-brew install ffmpeg espeak-ng
-```
-
-## Installation
-
-From the repository root:
-
-```bash
-python3.11 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -e ".[kokoro,alignment]"
-```
-
-The first real render downloads the selected Kokoro voice and model from
-Hugging Face. The first aligned render also downloads the selected Whisper
-model. Later runs reuse the local caches.
-
-## Quick start
-
-Validate a script and render its narration:
-
-```bash
-script2video validate examples/demo.yaml
-script2video voices --engine kokoro
-script2video render examples/demo.yaml --output builds/demo
-```
-
-A script is a small YAML file with project settings and ordered scenes:
+Projects are small YAML files with settings and ordered scenes:
 
 ```yaml
 title: Script2Video Demo
