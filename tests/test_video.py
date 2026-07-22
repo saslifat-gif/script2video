@@ -4,12 +4,41 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from script2video.errors import VideoProbeError
-from script2video.video import probe_video
+from script2video.video import _find_ffprobe, probe_video
 
 
 class VideoProbeTests(unittest.TestCase):
+    def test_uses_explicit_ffprobe_path(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            executable = Path(directory) / "ffprobe.exe"
+            executable.touch()
+            with (
+                patch.dict("os.environ", {"FFPROBE": str(executable)}, clear=False),
+                patch("script2video.video.shutil.which", return_value=None),
+            ):
+                self.assertEqual(_find_ffprobe(), str(executable))
+
+    def test_finds_winget_ffprobe_before_path_refresh(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            executable = (
+                Path(directory) / "Microsoft" / "WinGet" / "Links" / "ffprobe.exe"
+            )
+            executable.parent.mkdir(parents=True)
+            executable.touch()
+            with (
+                patch.dict(
+                    "os.environ",
+                    {"LOCALAPPDATA": directory, "FFPROBE": ""},
+                    clear=False,
+                ),
+                patch("script2video.video.shutil.which", return_value=None),
+                patch("script2video.video.sys.platform", "win32"),
+            ):
+                self.assertEqual(_find_ffprobe(), str(executable))
+
     def test_reads_duration_from_ffprobe_json(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             video = Path(directory) / "video.mp4"

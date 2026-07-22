@@ -9,51 +9,58 @@ CapCut 中继续编辑的素材包。
 旁白时长适配现有视频，并生成标准 WAV、SRT 和 JSON 文件，无需修改 CapCut
 项目文件。
 
+> **状态：** 已可在 macOS 和 Windows 上本地使用。生成旁白不需要视频；只有在
+> 需要带字幕和计时信息的 CapCut 素材包时才需要选择视频。
+
 ![Script2Video 桌面伴侣界面](docs/script2video-companion.png)
 
-## 用户安装
+## 选择工作流程
+
+| 目标 | 是否需要视频 | 输出 |
+| --- | --- | --- |
+| 生成语音旁白 | 否 | `narration.wav`、各场景 WAV 和 `manifest.json` |
+| 创建 CapCut 素材包 | 是 | 旁白、可编辑的 `captions.srt`、场景音频和计时信息 |
+
+## 只需安装一次
 
 安装不需要 Git。请下载
 [最新项目 ZIP](https://github.com/saslifat-gif/script2video/archive/refs/heads/main.zip)，
 解压后，在 `script2video-main` 文件夹中打开终端。
 
-`script2video` 目前作为本地 Python 应用运行，需要 Python 3.11 和 FFmpeg。
-FFmpeg 会提供用于读取视频信息的 `ffprobe` 命令。
+`script2video` 目前作为本地 Python 应用运行，需要 Python 3.11。只有选择视频时
+才需要 FFmpeg。
+
+首次安装真实语音功能时会包含 PyTorch、Transformers、tokenizers、spaCy 和
+Kokoro 的语言工具。这是正常现象，可能需要几分钟。首次渲染会下载所选声音模型，
+后续运行会复用本地缓存。
 
 ### macOS
 
-安装系统依赖和应用：
+安装 Python 和应用：
 
 ```bash
-brew install ffmpeg espeak-ng
+brew install python@3.11 espeak-ng
 python3.11 -m venv .venv
 .venv/bin/python -m pip install --upgrade pip
 .venv/bin/python -m pip install ".[kokoro,alignment]"
 ```
+
+如果要选择视频并创建 CapCut 素材包，请再运行 `brew install ffmpeg`。如果找不到
+`brew` 命令，请先安装 [Homebrew](https://brew.sh/)。
 
 AI 单词级对齐需要 Apple 芯片 Mac。Intel Mac 请改为安装 `.[kokoro]`，并使用
 精确字幕块计时作为回退方案。
 
 ### Windows PowerShell
 
-使用 VS Code Remote Tunnel 时，请先确认终端属于 Windows 电脑。终端提示符应类似
-`PS C:\...>`，而不是 `/Users/...` 这样的 macOS 路径。可运行以下命令确认：
-
-```powershell
-Get-Location
-py -3.11 -c "import platform, sys; print(sys.executable); print(platform.platform())"
-```
-
-如果输出中出现 macOS 或 `/Users`，请先在 VS Code 中重新连接 Windows Tunnel，
-再新建终端进行安装。
-
-使用 Windows 程序包管理器安装 Python 和 FFmpeg，然后重启 PowerShell，
-确保可以从 `PATH` 中找到 `ffprobe`：
+使用 Windows 程序包管理器安装 Python：
 
 ```powershell
 winget install --exact --id Python.Python.3.11
-winget install --exact --id Gyan.FFmpeg
 ```
+
+安装完成后关闭 PowerShell，再在项目文件夹中重新打开。这样 Windows 才能识别
+新安装的 `py` 命令。
 
 在解压后的 `script2video-main` 文件夹中安装 Windows 兼容版本：
 
@@ -62,6 +69,15 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install ".[kokoro]"
 ```
+
+如果要选择视频并创建 CapCut 素材包，请再安装 FFmpeg：
+
+```powershell
+winget install --exact --id Gyan.FFmpeg
+```
+
+应用通常可以立即找到 Winget 安装的 FFmpeg。如果仍然找不到，请关闭并重新打开
+应用一次。
 
 每台电脑都必须创建独立的 `.venv`。不要把 Mac 的 `.venv` 复制或同步到 Windows；
 `tokenizers`、NumPy 和音频库等编译依赖包含操作系统专用文件。项目已在 Git 中
@@ -90,20 +106,25 @@ Kokoro 通常会通过 Python 依赖提供音素支持。如果某个声音提�
 
 桌面伴侣是完全本地的桌面窗口，不需要服务器或浏览器。
 
-首次渲染时会从 Hugging Face 下载所选 Kokoro 模型和声音。首次启用对齐时还会
-下载所选 Whisper 模型，后续运行会复用本地缓存。
-
 ## 快速开始
+
+### 不选择视频，直接生成旁白
 
 1. 打开桌面伴侣。
 2. 在 **Script（脚本）** 中选择 `examples/minecraft.yaml` 或你自己的 YAML 文件。
-3. 选择源视频和输出文件夹。
-4. 选择声音，或保留 **Use script voice（使用脚本声音）**。
-5. 点击 **Generate CapCut Package（生成 CapCut 素材包）**。
-6. 完成后点击 **Open Output（打开输出）** 或 **Open CapCut**。
+3. 保持 **Video（视频）** 为空。
+4. 选择输出文件夹和声音，或保留 **Use script voice（使用脚本声音）**。
+5. 点击 **Generate Narration（生成旁白）**。
+6. 完成后点击 **Open Output（打开输出）**。
 
-输出文件夹包含 `narration.wav`、`captions.srt`、`manifest.json`，以及各场景的
-独立 WAV 文件。
+输出文件夹包含 `narration.wav`、`manifest.json` 和各场景的独立 WAV 文件。
+此工作流程不需要 FFmpeg。
+
+### 选择视频，创建 CapCut 素材包
+
+按照相同步骤操作，但额外选择一个源视频。桌面伴侣会切换为
+**Generate CapCut Package（生成 CapCut 素材包）**，并增加 `captions.srt`、
+时长适配和视频计时信息。随时点击 **Remove video（移除视频）** 即可返回纯旁白模式。
 
 如果使用命令行，可通过以下命令验证脚本并渲染旁白：
 
@@ -127,6 +148,7 @@ script2video capcut examples/minecraft.yaml \
 ## 功能
 
 - 使用 [Kokoro](https://github.com/hexgrad/kokoro) 在本地生成自然语音。
+- 无需选择视频即可生成旁白。
 - 分别渲染每个场景，并合成为一条标准化旁白。
 - 根据原始脚本文本生成可编辑的 SRT 字幕。
 - 在 Apple 芯片 Mac 上通过 MLX Whisper 对齐字幕和语音。
@@ -138,15 +160,11 @@ script2video capcut examples/minecraft.yaml \
 ## 工作原理
 
 ```text
-YAML 脚本 + 源视频
-          |
-          v
-       生成旁白
-          |
-          +-- 各场景 WAV 文件
-          +-- 合并后的 narration.wav
-          +-- captions.srt
-          +-- manifest.json
+YAML 脚本
+    |
+    +-- 无视频 --> narration.wav + 场景 WAV + manifest.json
+    |
+    +-- 有视频 --> narration.wav + captions.srt + 场景音频 + manifest.json
 ```
 
 ## 脚本格式

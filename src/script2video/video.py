@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import subprocess
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,8 +26,14 @@ class VideoInfo:
 def probe_video(path: Path, runner: CommandRunner = subprocess.run) -> VideoInfo:
     if not path.is_file():
         raise VideoProbeError(f"Video file does not exist: {path}")
+    ffprobe = _find_ffprobe() if runner is subprocess.run else "ffprobe"
+    if ffprobe is None:
+        raise VideoProbeError(
+            "ffprobe was not found. Install FFmpeg, reopen the app, or set "
+            "the FFPROBE environment variable to ffprobe.exe."
+        )
     command = [
-        "ffprobe",
+        ffprobe,
         "-v",
         "error",
         "-show_entries",
@@ -61,6 +70,36 @@ def probe_video(path: Path, runner: CommandRunner = subprocess.run) -> VideoInfo
         width=width,
         height=height,
     )
+
+
+def _find_ffprobe() -> str | None:
+    configured = os.environ.get("FFPROBE")
+    if configured and Path(configured).is_file():
+        return configured
+
+    discovered = shutil.which("ffprobe")
+    if discovered:
+        return discovered
+
+    if sys.platform != "win32":
+        return None
+
+    roots = [
+        Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft" / "WinGet",
+        Path(os.environ.get("ProgramFiles", "")) / "WinGet",
+    ]
+    for root in roots:
+        link = root / "Links" / "ffprobe.exe"
+        if link.is_file():
+            return str(link)
+
+        packages = root / "Packages"
+        if not packages.is_dir():
+            continue
+        for candidate in packages.glob("Gyan.FFmpeg_*/**/ffprobe.exe"):
+            if candidate.is_file():
+                return str(candidate)
+    return None
 
 
 def _positive_int_or_none(value: object) -> int | None:

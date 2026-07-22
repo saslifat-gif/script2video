@@ -19,6 +19,36 @@ _USE_SCRIPT_VOICE = "Use script voice"
 _AI_ALIGNMENT_AVAILABLE = sys.platform == "darwin" and machine() == "arm64"
 
 
+def build_generation_command(
+    python: str,
+    script: str,
+    output: str,
+    *,
+    video: str = "",
+    voice: str | None = None,
+    fit: bool = True,
+    align: bool = False,
+    align_model: str = "tiny.en",
+) -> list[str]:
+    """Build the CLI command for narration-only or video-package generation."""
+    command = [python, "-m", "script2video"]
+    if video:
+        command.extend(["capcut", script, "--video", video, "--output", output])
+    else:
+        command.extend(["render", script, "--output", output])
+
+    if voice:
+        command.extend(["--voice", voice])
+    if video and not fit:
+        command.append("--no-fit")
+    if video:
+        if align:
+            command.extend(["--align-model", align_model])
+        else:
+            command.append("--no-align")
+    return command
+
+
 class CompanionApp:
     BACKGROUND = "#f5f2fd"
     CARD = "#ffffff"
@@ -40,22 +70,26 @@ class CompanionApp:
 
         self.script = tk.StringVar(value="examples/minecraft.yaml")
         self.video = tk.StringVar()
-        self.output = tk.StringVar(value="builds/capcut-package")
+        self.output = tk.StringVar(value="builds/narration")
         self.voice = tk.StringVar(value=_USE_SCRIPT_VOICE)
         self.fit = tk.BooleanVar(value=True)
         self.align = tk.BooleanVar(value=_AI_ALIGNMENT_AVAILABLE)
         self.align_model = tk.StringVar(value="tiny.en")
         self.topmost = tk.BooleanVar(value=True)
         self.script_summary = tk.StringVar(value="Choose a valid YAML script")
-        self.video_summary = tk.StringVar(value="Choose a source video")
-        self.status = tk.StringVar(value="Choose a video to continue")
+        self.video_summary = tk.StringVar(
+            value="Optional — add a video for captions and duration fitting"
+        )
+        self.status = tk.StringVar(value="Choose a script to continue")
         self._advanced_visible = False
         self._output_was_suggested = True
         self._script_valid = False
         self._video_valid = False
+        self._last_generation_had_video = False
 
         self._configure_styles()
         self._build()
+        self._update_video_options()
         self._bind_validation()
         self.root.after_idle(self._inspect_script)
 
@@ -202,12 +236,14 @@ class CompanionApp:
         workspace.pack(fill="both", expand=True)
         workspace.columnconfigure(0, weight=1)
 
-        ttk.Label(workspace, text="Create a CapCut package", style="Title.TLabel").grid(
-            row=0, column=0, sticky="w"
-        )
         ttk.Label(
             workspace,
-            text="Turn a structured script and source video into editable assets.",
+            text="Create narration or a CapCut package",
+            style="Title.TLabel",
+        ).grid(row=0, column=0, sticky="w")
+        ttk.Label(
+            workspace,
+            text="Start with a script. Add a video only when you need timed captions.",
             style="Subtitle.TLabel",
         ).grid(row=1, column=0, sticky="w", pady=(2, 18))
 
@@ -236,7 +272,15 @@ class CompanionApp:
         self.video_metadata = ttk.Label(
             source, textvariable=self.video_summary, style="Metadata.TLabel"
         )
-        self.video_metadata.grid(row=4, column=1, columnspan=2, sticky="w")
+        self.video_metadata.grid(row=4, column=1, sticky="w")
+        self.clear_video_button = ttk.Button(
+            source,
+            text="Remove video",
+            command=self._clear_video,
+            style="Link.TButton",
+        )
+        self.clear_video_button.grid(row=4, column=2, sticky="e")
+        self.clear_video_button.state(["disabled"])
 
         narration = self._card(workspace, row=3)
         self._section_title(narration, "STEP 2  ·  NARRATION")
@@ -254,12 +298,13 @@ class CompanionApp:
 
         options = ttk.Frame(narration, style="CardBody.TFrame")
         options.grid(row=2, column=1, columnspan=2, sticky="w")
-        ttk.Checkbutton(
+        self.fit_check = ttk.Checkbutton(
             options,
             text="Fit narration to video",
             variable=self.fit,
             style="Card.TCheckbutton",
-        ).pack(anchor="w", pady=2)
+        )
+        self.fit_check.pack(anchor="w", pady=2)
         alignment_label = (
             "AI caption alignment"
             if _AI_ALIGNMENT_AVAILABLE
@@ -316,7 +361,7 @@ class CompanionApp:
         )
         self.generate_button = ttk.Button(
             output,
-            text="Generate CapCut Package",
+            text="Generate Narration",
             command=self._generate,
             style="Primary.TButton",
         )
@@ -334,12 +379,13 @@ class CompanionApp:
             command=self._open_output,
             style="Secondary.TButton",
         ).pack(side="left")
-        ttk.Button(
+        self.open_capcut_button = ttk.Button(
             self.success_actions,
             text="Open CapCut",
             command=self._open_capcut,
             style="Secondary.TButton",
-        ).pack(side="left", padx=(8, 0))
+        )
+        self.open_capcut_button.pack(side="left", padx=(8, 0))
 
         self._build_footer()
 
@@ -351,7 +397,7 @@ class CompanionApp:
         )
         ttk.Label(
             topbar,
-            text="Local CapCut companion",
+            text="Local narration and CapCut companion",
             style="Metadata.TLabel",
         ).pack(side="right")
 
@@ -410,17 +456,30 @@ class CompanionApp:
 
     def _video_path_changed(self) -> None:
         self._video_valid = False
-        self.video_summary.set("Inspecting video…")
+        if self.video.get():
+            self.video_summary.set("Inspecting video…")
+        else:
+            self.video_metadata.configure(foreground=self.MUTED)
+            self.video_summary.set(
+                "Optional — add a video for captions and duration fitting"
+            )
+        self._update_video_options()
         self._update_generate_state()
 
     def _update_generate_state(self) -> None:
+        has_video = bool(self.video.get().strip())
         ready = (
-            self._script_valid and self._video_valid and bool(self.output.get().strip())
+            self._script_valid
+            and bool(self.output.get().strip())
+            and (not has_video or self._video_valid)
+        )
+        self.generate_button.configure(
+            text="Generate CapCut Package" if has_video else "Generate Narration"
         )
         if ready:
             self.generate_button.state(["!disabled"])
-            if self.status.get() == "Choose a video to continue":
-                self._set_status("Ready", self.SUCCESS)
+            mode = "CapCut package" if has_video else "narration"
+            self._set_status(f"Ready to generate {mode}", self.SUCCESS)
         else:
             self.generate_button.state(["disabled"])
 
@@ -447,6 +506,8 @@ class CompanionApp:
         self.script_summary.set(
             f"✓ {len(project.scenes)} scenes  ·  {project.language}  ·  {project.voice}"
         )
+        if self._output_was_suggested and not self.video.get():
+            self.output.set(str(Path("builds") / f"{path.stem}-narration"))
         self._populate_voices(project)
         self._update_generate_state()
 
@@ -471,6 +532,14 @@ class CompanionApp:
                 self.output.set(str(Path("builds") / f"{stem}-capcut"))
             self._inspect_video(Path(selected))
 
+    def _clear_video(self) -> None:
+        self.video.set("")
+        self.success_actions.grid_remove()
+        if self._output_was_suggested:
+            script_stem = Path(self.script.get()).stem or "narration"
+            self.output.set(str(Path("builds") / f"{script_stem}-narration"))
+        self._set_status("Ready to generate narration", self.SUCCESS)
+
     def _inspect_video(self, path: Path) -> None:
         self.video_summary.set("Inspecting video…")
         self.video_metadata.configure(foreground=self.MUTED)
@@ -483,11 +552,14 @@ class CompanionApp:
         try:
             info = probe_video(path)
         except Script2VideoError as exc:
-            self.root.after(0, self._video_probe_failed, str(exc))
+            self.root.after(0, self._video_probe_failed, path, str(exc))
             return
         self.root.after(0, self._video_probe_finished, info)
 
     def _video_probe_finished(self, info: VideoInfo) -> None:
+        current = Path(self.video.get()).expanduser()
+        if not self.video.get() or current.resolve() != info.path.resolve():
+            return
         minutes, seconds = divmod(round(info.duration_seconds), 60)
         dimensions = (
             f"  ·  {info.width}×{info.height}"
@@ -497,13 +569,18 @@ class CompanionApp:
         self.video_metadata.configure(foreground=self.MUTED)
         self.video_summary.set(f"{minutes:02d}:{seconds:02d}{dimensions}")
         self._video_valid = True
+        self._update_video_options()
         self._update_generate_state()
-        self._set_status("Ready", self.SUCCESS)
+        self._set_status("Ready to generate CapCut package", self.SUCCESS)
 
-    def _video_probe_failed(self, error: str) -> None:
+    def _video_probe_failed(self, path: Path, error: str) -> None:
+        current = Path(self.video.get()).expanduser()
+        if not self.video.get() or current.resolve() != path.resolve():
+            return
         self._video_valid = False
         self.video_metadata.configure(foreground=self.ERROR)
         self.video_summary.set(error)
+        self._update_video_options()
         self._update_generate_state()
         self._set_status("Video inspection failed", self.ERROR)
 
@@ -525,11 +602,22 @@ class CompanionApp:
     def _toggle_topmost(self) -> None:
         self.root.attributes("-topmost", self.topmost.get())
 
+    def _update_video_options(self) -> None:
+        has_video = bool(self.video.get())
+        video_ready = has_video and self._video_valid
+        self.fit_check.state(["!disabled"] if video_ready else ["disabled"])
+        self.clear_video_button.state(["!disabled"] if has_video else ["disabled"])
+        if video_ready and _AI_ALIGNMENT_AVAILABLE:
+            self.alignment_check.state(["!disabled"])
+        else:
+            self.alignment_check.state(["disabled"])
+        self._update_alignment_state()
+
     def _update_alignment_state(self) -> None:
         self.alignment_menu.configure(
             state=(
                 "readonly"
-                if self.align.get() and _AI_ALIGNMENT_AVAILABLE
+                if self.align.get() and _AI_ALIGNMENT_AVAILABLE and self._video_valid
                 else "disabled"
             )
         )
@@ -539,36 +627,31 @@ class CompanionApp:
         self.status_dot.configure(foreground=color)
 
     def _generate(self) -> None:
-        if not self.script.get() or not self.video.get() or not self.output.get():
-            messagebox.showerror(
-                "Missing input", "Choose a script, video, and output folder."
-            )
+        if not self.script.get() or not self.output.get():
+            messagebox.showerror("Missing input", "Choose a script and output folder.")
             return
-        command = [
+        video = self.video.get().strip()
+        voice = self.voice.get()
+        command = build_generation_command(
             sys.executable,
-            "-m",
-            "script2video",
-            "capcut",
             self.script.get(),
-            "--video",
-            self.video.get(),
-            "--output",
             self.output.get(),
-        ]
-        if self.voice.get() != _USE_SCRIPT_VOICE:
-            command.extend(["--voice", self.voice.get()])
-        if not self.fit.get():
-            command.append("--no-fit")
-        if self.align.get():
-            command.extend(["--align-model", self.align_model.get()])
-        else:
-            command.append("--no-align")
+            video=video,
+            voice=None if voice == _USE_SCRIPT_VOICE else voice,
+            fit=self.fit.get(),
+            align=self.align.get(),
+            align_model=self.align_model.get(),
+        )
+        self._last_generation_had_video = bool(video)
 
         self.generate_button.state(["disabled"])
         self.success_actions.grid_remove()
         self.progress.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(10, 0))
         self.progress.start(12)
-        self._set_status("Generating narration and captions…", self.PRIMARY)
+        status = (
+            "Generating narration and captions…" if video else "Generating narration…"
+        )
+        self._set_status(status, self.PRIMARY)
         threading.Thread(
             target=self._run_generation, args=(command,), daemon=True
         ).start()
@@ -583,7 +666,15 @@ class CompanionApp:
         self.progress.grid_remove()
         self.generate_button.state(["!disabled"])
         if returncode == 0:
-            self._set_status(output or "CapCut package generated", self.SUCCESS)
+            fallback = (
+                "CapCut package generated"
+                if self._last_generation_had_video
+                else "Narration generated"
+            )
+            self._set_status(output or fallback, self.SUCCESS)
+            self.open_capcut_button.pack_forget()
+            if self._last_generation_had_video:
+                self.open_capcut_button.pack(side="left", padx=(8, 0))
             self.success_actions.grid(
                 row=4, column=0, columnspan=3, sticky="w", pady=(10, 0)
             )

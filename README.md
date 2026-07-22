@@ -10,52 +10,61 @@ render narration scene by scene, fit the result to an existing video, and
 produce standard WAV, SRT, and JSON files without modifying CapCut project
 files.
 
+> **Status:** Ready for local use on macOS and Windows. Narration generation
+> does not require a video. Add a video only when you want a timed CapCut
+> package with captions.
+
 ![Script2Video companion workspace](docs/script2video-companion.png)
 
-## Install for users
+## Choose a workflow
+
+| Goal | Video required? | Result |
+| --- | --- | --- |
+| Generate voice narration | No | `narration.wav`, scene WAV files, and `manifest.json` |
+| Build a CapCut package | Yes | Narration, editable `captions.srt`, scenes, and timing metadata |
+
+## Install once
 
 Git is not required. Download the
 [latest project ZIP](https://github.com/saslifat-gif/script2video/archive/refs/heads/main.zip),
 extract it, and open a terminal in the extracted `script2video-main` folder.
 
 `script2video` currently runs as a local Python application. It requires Python
-3.11 and FFmpeg, which provides the `ffprobe` video-inspection command.
+3.11. FFmpeg is needed only when you select a video.
+
+The first real-speech installation includes PyTorch, Transformers, tokenizers,
+spaCy, and Kokoro's language tools. This is expected and may take several
+minutes. The first render downloads the selected voice model; later runs reuse
+the local cache.
 
 ### macOS
 
-Install the system dependencies and the application:
+Install Python and the application:
 
 ```bash
-brew install ffmpeg espeak-ng
+brew install python@3.11 espeak-ng
 python3.11 -m venv .venv
 .venv/bin/python -m pip install --upgrade pip
 .venv/bin/python -m pip install ".[kokoro,alignment]"
 ```
+
+If you plan to select a video and create CapCut packages, also run
+`brew install ffmpeg`. If the `brew` command is unavailable, install
+[Homebrew](https://brew.sh/) first.
 
 AI word alignment requires a Mac with Apple Silicon. On an Intel Mac, install
 `.[kokoro]` instead and use the exact caption-timing fallback.
 
 ### Windows PowerShell
 
-When using a VS Code Remote Tunnel, first confirm that the terminal belongs to
-the Windows machine. Its prompt should look like `PS C:\...>`, not a macOS path
-such as `/Users/...`. You can verify the active machine with:
-
-```powershell
-Get-Location
-py -3.11 -c "import platform, sys; print(sys.executable); print(platform.platform())"
-```
-
-If the output mentions macOS or `/Users`, reconnect VS Code to the Windows
-tunnel and open a new terminal before installing anything.
-
-Install Python and FFmpeg with Windows Package Manager, then restart PowerShell
-so `ffprobe` is available on `PATH`:
+Install Python with Windows Package Manager:
 
 ```powershell
 winget install --exact --id Python.Python.3.11
-winget install --exact --id Gyan.FFmpeg
 ```
+
+Close PowerShell after the installation, then reopen it in the project folder.
+This lets Windows recognize the new `py` command.
 
 In the extracted `script2video-main` folder, install the Windows-compatible
 application:
@@ -65,6 +74,15 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install ".[kokoro]"
 ```
+
+If you plan to select a video and create CapCut packages, also install FFmpeg:
+
+```powershell
+winget install --exact --id Gyan.FFmpeg
+```
+
+The app can normally find Winget's FFmpeg installation immediately. If it
+cannot, close and reopen the app once.
 
 Create a separate `.venv` on each computer. Do not copy or synchronize the
 Mac `.venv` to Windows: compiled packages such as `tokenizers`, NumPy, and audio
@@ -94,21 +112,26 @@ On Windows PowerShell:
 
 The companion is a local desktop window; no server or browser is required.
 
-The first render downloads the selected Kokoro model and voice from Hugging
-Face. The first aligned render also downloads the selected Whisper model.
-Later runs reuse the local caches.
-
 ## Quick start
+
+### Generate narration without a video
 
 1. Open the companion UI.
 2. For **Script**, choose `examples/minecraft.yaml` or your own YAML file.
-3. Choose a source video and output folder.
-4. Select a voice or keep **Use script voice**.
-5. Select **Generate CapCut Package**.
-6. When generation finishes, select **Open Output** or **Open CapCut**.
+3. Leave **Video** empty.
+4. Choose an output folder and select a voice, or keep **Use script voice**.
+5. Select **Generate Narration**.
+6. When generation finishes, select **Open Output**.
 
-The output folder contains `narration.wav`, `captions.srt`, `manifest.json`, and
-the individual scene WAV files.
+The output contains `narration.wav`, `manifest.json`, and the individual scene
+WAV files. FFmpeg is not required for this workflow.
+
+### Build a CapCut package with a video
+
+Follow the same steps, but choose a source video. The companion switches to
+**Generate CapCut Package** and adds `captions.srt`, duration fitting, and video
+timing metadata. Select **Remove video** at any time to return to narration-only
+mode.
 
 For command-line usage, validate a script and render its narration with:
 
@@ -132,6 +155,7 @@ The result is ready in `builds/minecraft-capcut/` as `narration.wav`,
 ## Features
 
 - Generate natural speech locally with [Kokoro](https://github.com/hexgrad/kokoro).
+- Generate narration without selecting a video.
 - Render each scene separately and combine it into one normalized narration.
 - Create editable SRT captions from the exact supplied script.
 - Align captions to speech with MLX Whisper on Apple Silicon.
@@ -143,15 +167,11 @@ The result is ready in `builds/minecraft-capcut/` as `narration.wav`,
 ## How it works
 
 ```text
-YAML script + source video
-          |
-          v
-  narration generation
-          |
-          +-- scene WAV files
-          +-- combined narration.wav
-          +-- captions.srt
-          +-- manifest.json
+YAML script
+    |
+    +-- no video --> narration.wav + scene WAVs + manifest.json
+    |
+    +-- video ----> narration.wav + captions.srt + scenes + manifest.json
 ```
 
 ## Script format
