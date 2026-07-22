@@ -12,36 +12,43 @@ files.
 
 ## Open the companion UI
 
-After installation, launch the desktop companion with the CLI command:
+After activating the virtual environment on any supported platform, launch the
+desktop companion with:
 
 ```bash
 script2video companion
 ```
 
-From a source checkout, you can open it directly without activating the virtual
-environment:
+From a source checkout, you can also open it without activating the environment.
+
+On macOS or Linux:
 
 ```bash
 .venv/bin/script2video companion
-```
-
-You can also use Python's module entry point:
-
-```bash
 .venv/bin/python -m script2video companion
 ```
 
-All three methods open the same local, always-on-top workspace. Choose a YAML
+On Windows PowerShell:
+
+```powershell
+.\.venv\Scripts\script2video.exe companion
+.\.venv\Scripts\python.exe -m script2video companion
+```
+
+These methods open the same local, always-on-top workspace. Choose a YAML
 script, source video, and output folder, then select **Generate CapCut Package**.
 
 ## Deploy locally
 
-`script2video` is a local CLI and macOS companion rather than a hosted web
+`script2video` is a local CLI and desktop companion rather than a hosted web
 service. A typical deployment is an isolated Python environment on the machine
 where you edit video.
 
-You need Python 3.11, plus `ffprobe` for the CapCut workflow. MLX Whisper
-alignment requires a Mac with Apple Silicon.
+You need Python 3.11 and `ffprobe` for the CapCut workflow.
+
+### macOS
+
+MLX Whisper alignment requires a Mac with Apple Silicon.
 
 ```bash
 git clone https://github.com/saslifat-gif/script2video.git
@@ -53,6 +60,45 @@ source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e ".[kokoro,alignment]"
 ```
+
+### Windows PowerShell
+
+Install Python, Git, and FFmpeg with Windows Package Manager, then restart
+PowerShell so `ffprobe` is available on `PATH`:
+
+```powershell
+winget install --exact --id Python.Python.3.11
+winget install --exact --id Git.Git
+winget install --exact --id Gyan.FFmpeg
+```
+
+Clone the project and install the Windows-compatible dependencies. Using the
+virtual environment's Python directly avoids PowerShell execution-policy
+problems:
+
+```powershell
+git clone https://github.com/saslifat-gif/script2video.git
+Set-Location script2video
+
+py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -e ".[kokoro]"
+.\.venv\Scripts\script2video.exe companion
+```
+
+MLX Whisper does not run on Windows, so the companion disables AI alignment
+there and uses exact caption-block timing. For the CLI, add `--no-align`:
+
+```powershell
+.\.venv\Scripts\script2video.exe capcut examples\minecraft.yaml `
+  --video C:\path\to\video.mp4 `
+  --output builds\minecraft-capcut `
+  --no-align
+```
+
+Kokoro normally supplies its phoneme support through Python dependencies. If a
+voice reports a missing eSpeak library, install the latest Windows MSI from the
+[official eSpeak NG releases](https://github.com/espeak-ng/espeak-ng/releases).
 
 The first render downloads the selected Kokoro model and voice from Hugging
 Face. The first aligned render also downloads the selected Whisper model.
@@ -89,7 +135,7 @@ The result is ready in `builds/minecraft-capcut/` as `narration.wav`,
 - Fit narration to a video's duration within a safe speaking-speed range.
 - Build a CapCut-ready package with audio, captions, and timing metadata.
 - Use a deterministic fake engine for fast, model-free development and tests.
-- Launch an always-on-top macOS companion window for the CapCut workflow.
+- Launch an always-on-top desktop companion for the CapCut workflow.
 
 ## How it works
 

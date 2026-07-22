@@ -6,6 +6,7 @@ import threading
 import tkinter as tk
 from collections.abc import Callable
 from pathlib import Path
+from platform import machine
 from tkinter import filedialog, messagebox, ttk
 
 from script2video.config import ProjectConfig, load_project
@@ -15,6 +16,7 @@ from script2video.errors import Script2VideoError
 from script2video.video import VideoInfo, probe_video
 
 _USE_SCRIPT_VOICE = "Use script voice"
+_AI_ALIGNMENT_AVAILABLE = sys.platform == "darwin" and machine() == "arm64"
 
 
 class CompanionApp:
@@ -41,7 +43,7 @@ class CompanionApp:
         self.output = tk.StringVar(value="builds/capcut-package")
         self.voice = tk.StringVar(value=_USE_SCRIPT_VOICE)
         self.fit = tk.BooleanVar(value=True)
-        self.align = tk.BooleanVar(value=True)
+        self.align = tk.BooleanVar(value=_AI_ALIGNMENT_AVAILABLE)
         self.align_model = tk.StringVar(value="tiny.en")
         self.topmost = tk.BooleanVar(value=True)
         self.script_summary = tk.StringVar(value="Choose a valid YAML script")
@@ -258,13 +260,21 @@ class CompanionApp:
             variable=self.fit,
             style="Card.TCheckbutton",
         ).pack(anchor="w", pady=2)
-        ttk.Checkbutton(
+        alignment_label = (
+            "AI caption alignment"
+            if _AI_ALIGNMENT_AVAILABLE
+            else "AI caption alignment (Apple Silicon only)"
+        )
+        self.alignment_check = ttk.Checkbutton(
             options,
-            text="AI caption alignment",
+            text=alignment_label,
             variable=self.align,
             command=self._update_alignment_state,
             style="Card.TCheckbutton",
-        ).pack(anchor="w", pady=2)
+        )
+        self.alignment_check.pack(anchor="w", pady=2)
+        if not _AI_ALIGNMENT_AVAILABLE:
+            self.alignment_check.state(["disabled"])
         self.advanced_button = ttk.Button(
             narration,
             text="Advanced  ▾",
@@ -286,6 +296,7 @@ class CompanionApp:
             style="Field.TCombobox",
         )
         self.alignment_menu.grid(row=0, column=1, sticky="w")
+        self._update_alignment_state()
         ttk.Checkbutton(
             self.advanced,
             text="Keep window on top",
@@ -516,7 +527,11 @@ class CompanionApp:
 
     def _update_alignment_state(self) -> None:
         self.alignment_menu.configure(
-            state="readonly" if self.align.get() else "disabled"
+            state=(
+                "readonly"
+                if self.align.get() and _AI_ALIGNMENT_AVAILABLE
+                else "disabled"
+            )
         )
 
     def _set_status(self, message: str, color: str) -> None:
@@ -578,15 +593,28 @@ class CompanionApp:
 
     def _open_output(self) -> None:
         path = Path(self.output.get()).expanduser()
-        if path.exists():
+        if not path.exists():
+            messagebox.showinfo("Output not found", "Generate the package first.")
+            return
+        if sys.platform == "win32":
+            subprocess.run(["explorer", str(path)], check=False)
+        elif sys.platform == "darwin":
             subprocess.run(["open", str(path)], check=False)
         else:
-            messagebox.showinfo("Output not found", "Generate the package first.")
+            subprocess.run(["xdg-open", str(path)], check=False)
 
     def _open_capcut(self) -> None:
-        result = subprocess.run(
-            ["open", "-a", "CapCut"], capture_output=True, check=False
-        )
+        if sys.platform == "darwin":
+            command = ["open", "-a", "CapCut"]
+        elif sys.platform == "win32":
+            command = ["cmd", "/c", "start", "", "CapCut"]
+        else:
+            messagebox.showerror(
+                "CapCut unavailable",
+                "Open CapCut manually on this operating system.",
+            )
+            return
+        result = subprocess.run(command, capture_output=True, check=False)
         if result.returncode != 0:
             messagebox.showerror(
                 "CapCut not found", "Could not open the CapCut application."
