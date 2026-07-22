@@ -8,6 +8,32 @@ render narration scene by scene, fit the result to an existing video, and
 produce standard WAV, SRT, and JSON files without modifying CapCut project
 files.
 
+![Script2Video companion workspace](docs/script2video-companion.png)
+
+## Open the companion UI
+
+After installation, launch the desktop companion with the CLI command:
+
+```bash
+script2video companion
+```
+
+From a source checkout, you can open it directly without activating the virtual
+environment:
+
+```bash
+.venv/bin/script2video companion
+```
+
+You can also use Python's module entry point:
+
+```bash
+.venv/bin/python -m script2video companion
+```
+
+All three methods open the same local, always-on-top workspace. Choose a YAML
+script, source video, and output folder, then select **Generate CapCut Package**.
+
 ## Deploy locally
 
 `script2video` is a local CLI and macOS companion rather than a hosted web
@@ -143,13 +169,7 @@ To use the package in CapCut Desktop:
 For implementation details, see
 [`docs/m3-capcut.md`](docs/m3-capcut.md).
 
-## Companion window
-
-Launch the macOS companion:
-
-```bash
-script2video companion
-```
+## Companion workflow
 
 The always-on-top window lets you choose a YAML script, source video, output
 folder, voice, and alignment model. It can generate the package, open the
