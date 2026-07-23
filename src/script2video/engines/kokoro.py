@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from importlib.metadata import PackageNotFoundError, version
-from typing import Any, Callable
+from typing import Any
 
 from script2video.engines.base import (
     AudioChunk,

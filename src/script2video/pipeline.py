@@ -1,14 +1,20 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from script2video import __version__
 from script2video.audio import silence, write_wav
 from script2video.config import ProjectConfig
-from script2video.engines.base import AudioChunk, AudioFormat, SynthesisRequest, TTSEngine
+from script2video.engines.base import (
+    AudioChunk,
+    AudioFormat,
+    SynthesisRequest,
+    TTSEngine,
+)
 from script2video.errors import RenderError
 from script2video.manifest import write_manifest
 
@@ -46,7 +52,8 @@ def render_project(
                 chunk = engine.synthesize(request)
             except Exception as exc:
                 raise RenderError(
-                    f"Scene '{scene.id}' segment {segment_index} synthesis failed: {exc}"
+                    f"Scene '{scene.id}' segment {segment_index} synthesis "
+                    f"failed: {exc}"
                 ) from exc
 
             if audio_format is None:
@@ -68,9 +75,7 @@ def render_project(
                     "text": segment_text,
                     "start_sample": segment_start,
                     "end_sample": segment_end,
-                    "start_ms": _samples_to_ms(
-                        segment_start, audio_format.sample_rate
-                    ),
+                    "start_ms": _samples_to_ms(segment_start, audio_format.sample_rate),
                     "end_ms": _samples_to_ms(segment_end, audio_format.sample_rate),
                 }
             )

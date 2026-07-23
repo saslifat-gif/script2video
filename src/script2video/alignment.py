@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from difflib import SequenceMatcher
 import json
-from pathlib import Path
 import re
 import subprocess
 import sys
-from typing import Any, Callable, Protocol
+from collections.abc import Callable
+from dataclasses import dataclass
+from difflib import SequenceMatcher
+from pathlib import Path
+from typing import Any, Protocol
 
 from script2video.errors import AlignmentError
 
@@ -41,7 +42,9 @@ class AlignedWord:
 
 
 class WordAligner(Protocol):
-    def align(self, audio_path: Path, text: str, language: str) -> list[AlignedWord]: ...
+    def align(
+        self, audio_path: Path, text: str, language: str
+    ) -> list[AlignedWord]: ...
 
     def identity(self) -> dict[str, str]: ...
 
@@ -140,7 +143,9 @@ class MLXWhisperAligner:
                 for word in payload["words"]
             ]
         except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
-            raise AlignmentError("MLX Whisper worker returned invalid timing data") from exc
+            raise AlignmentError(
+                "MLX Whisper worker returned invalid timing data"
+            ) from exc
 
 
 def reconcile_script_words(
@@ -151,7 +156,9 @@ def reconcile_script_words(
     if not script_words:
         return []
 
-    script_keys = [_normalise_word(word, index) for index, word in enumerate(script_words)]
+    script_keys = [
+        _normalise_word(word, index) for index, word in enumerate(script_words)
+    ]
     recognized_keys = [
         _normalise_word(word.text, index) for index, word in enumerate(recognized)
     ]
@@ -196,7 +203,9 @@ def reconcile_script_words(
 
 
 def _normalise_word(word: str, index: int) -> str:
-    normalized = "".join(character for character in word.casefold() if character.isalnum())
+    normalized = "".join(
+        character for character in word.casefold() if character.isalnum()
+    )
     return normalized or f"__punctuation_{index}"
 
 

@@ -14,8 +14,6 @@ files.
 > does not require a video. Add a video only when you want a timed CapCut
 > package with captions.
 
-![Script2Video companion workspace](docs/script2video-companion.png)
-
 ## Choose a workflow
 
 | Goal | Video required? | Result |
@@ -110,7 +108,10 @@ On Windows PowerShell:
 .\.venv\Scripts\script2video.exe companion
 ```
 
-The companion is a local desktop window; no server or browser is required.
+The command opens Script2Video Studio in your default browser. The interface is
+served only on `127.0.0.1`, so scripts, videos, and generated audio remain on
+your computer. Keep the terminal window open while using Studio; press
+`Ctrl+C` there when you are finished.
 
 ## Quick start
 
@@ -238,13 +239,15 @@ To use the package in CapCut Desktop:
 For implementation details, see
 [`docs/m3-capcut.md`](docs/m3-capcut.md).
 
-## Companion workflow
+## Studio workflow
 
-The always-on-top window lets you choose a YAML script, source video, output
-folder, voice, and alignment model. It can generate the package, open the
-output folder, and launch CapCut.
+The responsive browser workspace lets you choose a YAML script, source video,
+output folder, and voice. It shows script and video details before generation,
+tracks the active job, opens the output folder, and can launch CapCut. Browser
+rendering provides consistent high-DPI typography and layout on Windows and
+macOS.
 
-The companion exports standard files instead of editing CapCut projects
+Studio exports standard files instead of editing CapCut projects
 directly because CapCut does not provide a documented desktop plugin SDK.
 
 ## Languages and voices

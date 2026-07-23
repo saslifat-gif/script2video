@@ -14,9 +14,7 @@ from script2video.config import ProjectConfig
 class CaptionTests(unittest.TestCase):
     def test_formats_srt_timestamps(self) -> None:
         self.assertEqual(format_srt_timestamp(36_000, 24_000), "00:00:01,500")
-        self.assertEqual(
-            format_srt_timestamp(24_000 * 3_661, 24_000), "01:01:01,000"
-        )
+        self.assertEqual(format_srt_timestamp(24_000 * 3_661, 24_000), "01:01:01,000")
 
     def test_splits_long_text_into_readable_blocks(self) -> None:
         parts = split_caption_text(
@@ -52,9 +50,7 @@ class CaptionTests(unittest.TestCase):
         )
         manifest = {
             "audio": {"sample_rate": 24_000},
-            "scenes": [
-                {"id": "intro", "start_sample": 0, "speech_end_sample": 48_000}
-            ],
+            "scenes": [{"id": "intro", "start_sample": 0, "speech_end_sample": 48_000}],
         }
 
         srt = build_srt(project, manifest)

@@ -31,7 +31,9 @@ def get_engine(name: str) -> TTSEngine:
 
 
 @app.command()
-def validate(script: Annotated[Path, typer.Argument(exists=True, dir_okay=False)]) -> None:
+def validate(
+    script: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
+) -> None:
     """Validate a YAML script without rendering audio."""
     try:
         project = load_project(script)
@@ -87,7 +89,8 @@ def render(
 def capcut_package(
     script: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
     video: Annotated[
-        Path, typer.Option("--video", help="Video whose duration narration should match.")
+        Path,
+        typer.Option("--video", help="Video whose duration narration should match."),
     ],
     output: Annotated[
         Path, typer.Option("--output", "-o", help="CapCut package directory.")
@@ -138,7 +141,15 @@ def capcut_package(
 
 @app.command()
 def companion() -> None:
-    """Open the always-on-top CapCut companion window."""
+    """Open Script2Video Studio in the default browser."""
+    from script2video.webapp import run_web_app
+
+    run_web_app()
+
+
+@app.command("classic-companion", hidden=True)
+def classic_companion() -> None:
+    """Open the legacy Tk companion window."""
     from script2video.companion import run_companion
 
     run_companion()

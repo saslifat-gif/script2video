@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Create local narration and precisely timed CapCut subtitles."
+    />
+    <title>Script2Video Studio</title>
+    <link rel="stylesheet" href="/app.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Script2Video Studio home">
+          <span class="brand-mark" aria-hidden="true">S2V</span>
+          <span class="brand-copy">
+            <strong>Script2Video</strong>
+            <small>Studio</small>
+          </span>
+        </a>
+        <div class="topbar-actions">
+          <span class="privacy-pill">
+            <span class="privacy-dot" aria-hidden="true"></span>
+            Local workspace
+          </span>
+          <span class="version" id="version">v0.4.0</span>
+        </div>
+      </header>
+
+      <main>
+        <section class="hero" aria-labelledby="page-title">
+          <div>
+            <p class="eyebrow">Voice and caption workspace</p>
+            <h1 id="page-title">Turn your script into a finished voice track.</h1>
+            <p class="hero-copy">
+              Generate natural narration, match it to your video, and export
+              editable subtitles—all on your computer.
+            </p>
+          </div>
+          <div class="hero-badges" aria-label="Product capabilities">
+            <span>Kokoro voice</span>
+            <span>Exact script text</span>
+            <span>CapCut ready</span>
+          </div>
+        </section>
+
+        <section class="workspace-grid">
+          <div class="flow-panel">
+            <section class="step-card" aria-labelledby="source-title">
+              <div class="step-heading">
+                <span class="step-number">01</span>
+                <div>
+                  <h2 id="source-title">Source</h2>
+                  <p>Choose the script you want to narrate.</p>
+                </div>
+                <span class="step-state" id="script-state">Required</span>
+              </div>
+
+              <label class="field-label" for="script-path">YAML script</label>
+              <div class="path-control">
+                <input
+                  id="script-path"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="Choose a .yaml script"
+                />
+                <button class="browse-button" id="choose-script" type="button">
+                  Browse
+                </button>
+              </div>
+              <p class="field-message" id="script-message">
+                A script defines your scenes, language, and default voice.
+              </p>
+
+              <div class="optional-divider">
+                <span>Optional video</span>
+                <span class="divider-line"></span>
+              </div>
+
+              <label class="field-label" for="video-path">Source video</label>
+              <div class="path-control">
+                <input
+                  id="video-path"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="Add a video for timed captions"
+                />
+                <button class="browse-button" id="choose-video" type="button">
+                  Browse
+                </button>
+              </div>
+              <div class="field-message-row">
+                <p class="field-message" id="video-message">
+                  Leave empty when you only need narration.
+                </p>
+                <button class="text-button" id="clear-video" type="button" hidden>
+                  Remove
+                </button>
+              </div>
+            </section>
+
+            <section class="step-card" aria-labelledby="voice-title">
+              <div class="step-heading">
+                <span class="step-number">02</span>
+                <div>
+                  <h2 id="voice-title">Narration</h2>
+                  <p>Choose how the finished voice should sound and fit.</p>
+                </div>
+                <span class="step-state neutral">Local AI</span>
+              </div>
+
+              <label class="field-label" for="voice-select">Voice</label>
+              <div class="select-wrap">
+                <select id="voice-select" disabled>
+                  <option value="">Use the script voice</option>
+                </select>
+              </div>
+
+              <div class="settings-list">
+                <label class="setting">
+                  <span>
+                    <strong>Fit narration to video</strong>
+                    <small>Adjust speaking speed to match the video length.</small>
+                  </span>
+                  <input id="fit-toggle" type="checkbox" checked disabled />
+                  <span class="toggle" aria-hidden="true"></span>
+                </label>
+                <label class="setting">
+                  <span>
+                    <strong>AI caption alignment</strong>
+                    <small id="alignment-description">
+                      Match subtitle changes to spoken words.
+                    </small>
+                  </span>
+                  <input id="align-toggle" type="checkbox" checked disabled />
+                  <span class="toggle" aria-hidden="true"></span>
+                </label>
+              </div>
+            </section>
+
+            <section class="step-card output-step" aria-labelledby="output-title">
+              <div class="step-heading">
+                <span class="step-number">03</span>
+                <div>
+                  <h2 id="output-title">Output</h2>
+                  <p>Pick where the generated files should be saved.</p>
+                </div>
+                <span class="step-state neutral">WAV · SRT · JSON</span>
+              </div>
+
+              <label class="field-label" for="output-path">Output folder</label>
+              <div class="path-control">
+                <input
+                  id="output-path"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="Choose an output folder"
+                />
+                <button class="browse-button" id="choose-output" type="button">
+                  Browse
+                </button>
+              </div>
+
+              <button class="generate-button" id="generate" type="button" disabled>
+                <span id="generate-label">Generate narration</span>
+                <span class="button-arrow" aria-hidden="true">→</span>
+              </button>
+              <p class="privacy-note">
+                Your script and media remain on this computer.
+              </p>
+            </section>
+          </div>
+
+          <aside class="preview-panel" aria-labelledby="preview-title">
+            <div class="preview-topline">
+              <div>
+                <p class="preview-label">Production overview</p>
+                <h2 id="preview-title">Ready when you are</h2>
+              </div>
+              <span class="status-chip" id="status-chip">
+                <span></span>
+                Setup
+              </span>
+            </div>
+
+            <div class="audio-stage" aria-hidden="true">
+              <div class="play-orb"><span></span></div>
+              <div class="waveform">
+                <i style="--h: 24%"></i><i style="--h: 47%"></i>
+                <i style="--h: 72%"></i><i style="--h: 36%"></i>
+                <i style="--h: 84%"></i><i style="--h: 58%"></i>
+                <i style="--h: 92%"></i><i style="--h: 44%"></i>
+                <i style="--h: 65%"></i><i style="--h: 32%"></i>
+                <i style="--h: 76%"></i><i style="--h: 51%"></i>
+                <i style="--h: 88%"></i><i style="--h: 40%"></i>
+                <i style="--h: 68%"></i><i style="--h: 26%"></i>
+                <i style="--h: 56%"></i><i style="--h: 34%"></i>
+                <i style="--h: 74%"></i><i style="--h: 43%"></i>
+              </div>
+              <span class="duration" id="duration">--:--</span>
+            </div>
+
+            <div class="project-summary">
+              <p class="summary-kicker">Current script</p>
+              <h3 id="project-title">Choose a YAML script</h3>
+              <div class="metrics">
+                <div>
+                  <strong id="scene-count">—</strong>
+                  <span>Scenes</span>
+                </div>
+                <div>
+                  <strong id="word-count">—</strong>
+                  <span>Words</span>
+                </div>
+                <div>
+                  <strong id="language">—</strong>
+                  <span>Language</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="delivery-card">
+              <div class="delivery-heading">
+                <span>Delivery</span>
+                <small id="delivery-mode">Narration only</small>
+              </div>
+              <ul id="delivery-files">
+                <li><span class="file-type">WAV</span> Narration track</li>
+                <li><span class="file-type">JSON</span> Timing manifest</li>
+              </ul>
+            </div>
+
+            <div class="job-panel" id="job-panel" hidden>
+              <div class="job-progress">
+                <span id="job-progress-bar"></span>
+              </div>
+              <p id="job-message">Preparing generation</p>
+            </div>
+
+            <div class="success-panel" id="success-panel" hidden>
+              <div class="success-mark" aria-hidden="true">✓</div>
+              <div>
+                <strong>Your files are ready</strong>
+                <p id="success-copy">The narration package was generated.</p>
+              </div>
+              <div class="success-actions">
+                <button id="open-output" type="button">Open output</button>
+                <button id="open-capcut" type="button" hidden>Open CapCut</button>
+              </div>
+            </div>
+          </aside>
+        </section>
+      </main>
+
+      <footer>
+        <span>Script2Video Studio</span>
+        <span>Local-first voice production</span>
+      </footer>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+    <script src="/app.js" defer></script>
+  </body>
+</html>

@@ -97,9 +97,7 @@ def create_capcut_package(
             "requested": fit_to_video,
             "applied": fit_applied,
             "iterations": fit_iterations,
-            "converged": _relative_difference(
-                final_duration_ms, target_duration_ms
-            )
+            "converged": _relative_difference(final_duration_ms, target_duration_ms)
             <= 0.005,
             "speed_factor": round(speed_factor, 6),
             "initial_narration_duration_ms": initial_duration_ms,
