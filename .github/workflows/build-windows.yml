@@ -1,0 +1,59 @@
+name: Build Windows application
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/build-windows.yml"
+      - "packaging/windows/**"
+      - "scripts/build-windows.ps1"
+      - "src/**"
+      - "pyproject.toml"
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          architecture: "x64"
+          cache: "pip"
+
+      - name: Install application and packager
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ".[kokoro,packaging]"
+          python -m spacy download en_core_web_sm
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+
+      - name: Run tests
+        shell: pwsh
+        run: python -m unittest discover -s tests -v
+
+      - name: Build installer
+        shell: pwsh
+        run: .\scripts\build-windows.ps1
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Script2Video-Studio-1.0.0-Windows-x64
+          path: release/Script2Video-Studio-1.0.0-Windows-x64.exe
+          if-no-files-found: error

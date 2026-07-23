@@ -6,5 +6,7 @@ __pycache__/
 .ruff_cache/
 .venv/
 builds/
+build/
+release/
 dist/
 *.egg-info/
