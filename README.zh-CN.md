@@ -12,8 +12,6 @@ CapCut 中继续编辑的素材包。
 > **状态：** 已可在 macOS 和 Windows 上本地使用。生成旁白不需要视频；只有在
 > 需要带字幕和计时信息的 CapCut 素材包时才需要选择视频。
 
-![Script2Video 桌面伴侣界面](docs/script2video-companion.png)
-
 ## 选择工作流程
 
 | 目标 | 是否需要视频 | 输出 |
@@ -83,14 +81,14 @@ winget install --exact --id Gyan.FFmpeg
 `tokenizers`、NumPy 和音频库等编译依赖包含操作系统专用文件。项目已在 Git 中
 忽略 `.venv/`，因此 Git 和项目 ZIP 只会传输源代码。
 
-MLX Whisper 无法在 Windows 上运行。桌面伴侣会自动禁用该功能，改用精确字幕块
+MLX Whisper 无法在 Windows 上运行。Studio 会自动禁用该功能，改用精确字幕块
 计时。
 
 Kokoro 通常会通过 Python 依赖提供音素支持。如果某个声音提示缺少 eSpeak
 库，请从 [eSpeak NG 官方发布页](https://github.com/espeak-ng/espeak-ng/releases)
 安装最新的 Windows MSI。
 
-## 打开桌面伴侣
+## 打开 Script2Video Studio
 
 在 macOS 上运行：
 
@@ -104,13 +102,15 @@ Kokoro 通常会通过 Python 依赖提供音素支持。如果某个声音提�
 .\.venv\Scripts\script2video.exe companion
 ```
 
-桌面伴侣是完全本地的桌面窗口，不需要服务器或浏览器。
+该命令会在默认浏览器中打开 Script2Video Studio。页面只通过
+`127.0.0.1` 在本机提供，因此脚本、视频和生成的音频不会离开你的电脑。使用时请
+保持终端窗口开启，结束后在终端按 `Ctrl+C`。
 
 ## 快速开始
 
 ### 不选择视频，直接生成旁白
 
-1. 打开桌面伴侣。
+1. 打开 Script2Video Studio。
 2. 在 **Script（脚本）** 中选择 `examples/minecraft.yaml` 或你自己的 YAML 文件。
 3. 保持 **Video（视频）** 为空。
 4. 选择输出文件夹和声音，或保留 **Use script voice（使用脚本声音）**。
@@ -122,7 +122,7 @@ Kokoro 通常会通过 Python 依赖提供音素支持。如果某个声音提�
 
 ### 选择视频，创建 CapCut 素材包
 
-按照相同步骤操作，但额外选择一个源视频。桌面伴侣会切换为
+按照相同步骤操作，但额外选择一个源视频。Studio 会切换为
 **Generate CapCut Package（生成 CapCut 素材包）**，并增加 `captions.srt`、
 时长适配和视频计时信息。随时点击 **Remove video（移除视频）** 即可返回纯旁白模式。
 
@@ -155,7 +155,7 @@ script2video capcut examples/minecraft.yaml \
 - 在安全语速范围内，让旁白时长适配视频。
 - 生成包含音频、字幕和计时元数据的 CapCut 素材包。
 - 提供确定性的假语音引擎，便于无模型快速开发和测试。
-- 提供可保持置顶的桌面伴侣，辅助 CapCut 工作流程。
+- 提供清晰、响应式的本地浏览器工作区，辅助 CapCut 工作流程。
 
 ## 工作原理
 
@@ -229,12 +229,12 @@ builds/minecraft-capcut/
 
 实现细节请查看 [`docs/m3-capcut.md`](docs/m3-capcut.md)。
 
-## 桌面伴侣工作流程
+## Studio 工作流程
 
-置顶窗口可用于选择 YAML 脚本、源视频、输出文件夹、声音和对齐模型。它可以
-生成素材包、打开输出文件夹并启动 CapCut。
+响应式浏览器工作区可用于选择 YAML 脚本、源视频、输出文件夹和声音。它可以
+显示脚本与视频信息、跟踪生成状态、打开输出文件夹并启动 CapCut。
 
-桌面伴侣通过标准文件导出，而不是直接修改 CapCut 项目，因为 CapCut 没有提供
+Studio 通过标准文件导出，而不是直接修改 CapCut 项目，因为 CapCut 没有提供
 公开的桌面插件 SDK。
 
 ## 语言和声音

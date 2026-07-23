@@ -55,7 +55,9 @@ scenes:
 
             with wave.open(str(output / "narration.wav"), "rb") as audio:
                 self.assertEqual(audio.getframerate(), 24_000)
-                self.assertEqual(audio.getnframes(), manifest["audio"]["duration_samples"])
+                self.assertEqual(
+                    audio.getnframes(), manifest["audio"]["duration_samples"]
+                )
 
             persisted = json.loads((output / "manifest.json").read_text())
             self.assertEqual(persisted["scenes"], manifest["scenes"])

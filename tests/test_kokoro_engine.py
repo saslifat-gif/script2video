@@ -63,9 +63,7 @@ class KokoroEngineTests(unittest.TestCase):
             return StubPipeline()
 
         engine = KokoroEngine(pipeline_factory=factory)
-        request = SynthesisRequest(
-            text="Hello.", language="en-US", voice="af_heart"
-        )
+        request = SynthesisRequest(text="Hello.", language="en-US", voice="af_heart")
         engine.synthesize(request)
         engine.synthesize(request)
 
@@ -75,9 +73,7 @@ class KokoroEngineTests(unittest.TestCase):
         engine = KokoroEngine(pipeline_factory=lambda **_: StubPipeline())
         with self.assertRaisesRegex(ValueError, "does not match language"):
             engine.synthesize(
-                SynthesisRequest(
-                    text="Hello.", language="en-US", voice="bf_emma"
-                )
+                SynthesisRequest(text="Hello.", language="en-US", voice="bf_emma")
             )
 
     def test_lists_all_official_voices_without_loading_model(self) -> None:

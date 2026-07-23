@@ -56,9 +56,9 @@ follow spoken phrases while names, wording, and punctuation remain intentional.
 If AI alignment is disabled or unavailable, M3 falls back to the exact
 caption-block PCM boundaries described above.
 
-## Companion window
+## Local Studio
 
-The Tk-based macOS companion is always-on-top by default and provides:
+The responsive browser interface is served only on localhost and provides:
 
 - YAML script selection;
 - source-video selection;
@@ -66,7 +66,12 @@ The Tk-based macOS companion is always-on-top by default and provides:
 - optional voice override;
 - duration-fit toggle;
 - package generation;
+- live job state;
 - output-folder and CapCut launch buttons.
+
+The browser handles high-DPI scaling, typography, and responsive layout
+consistently on Windows and macOS. A native file chooser is opened by the local
+Python process, so large videos do not need to be uploaded or copied.
 
 It deliberately does not modify CapCut project files. The stable integration
 contract is standard WAV and SRT import.

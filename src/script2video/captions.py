@@ -61,7 +61,9 @@ def build_srt(project: ProjectConfig, manifest: dict[str, Any]) -> str:
     return "\n\n".join(blocks) + "\n"
 
 
-def split_caption_text(text: str, max_words: int = 16, max_chars: int = 84) -> list[str]:
+def split_caption_text(
+    text: str, max_words: int = 16, max_chars: int = 84
+) -> list[str]:
     sentences = _SENTENCE_BOUNDARY.split(" ".join(text.split()))
     parts: list[str] = []
     current: list[str] = []

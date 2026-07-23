@@ -1,0 +1,392 @@
+from __future__ import annotations
+
+import json
+import mimetypes
+import subprocess
+import sys
+import threading
+import uuid
+import webbrowser
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from platform import machine
+from typing import Any
+from urllib.parse import urlparse
+
+from script2video.alignment import MLXWhisperAligner
+from script2video.capcut import create_capcut_package
+from script2video.config import load_project
+from script2video.engines.fake import FakeEngine
+from script2video.engines.kokoro import KokoroEngine
+from script2video.errors import Script2VideoError
+from script2video.pipeline import render_project
+from script2video.video import probe_video
+
+_STATIC_ROOT = Path(__file__).with_name("web_static")
+_AI_ALIGNMENT_AVAILABLE = sys.platform == "darwin" and machine() == "arm64"
+_MAX_REQUEST_BYTES = 1_000_000
+
+
+@dataclass
+class GenerationJob:
+    id: str
+    status: str = "queued"
+    message: str = "Preparing generation"
+    created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
+    output: str | None = None
+    files: list[str] = field(default_factory=list)
+    error: str | None = None
+
+
+class WebState:
+    def __init__(self) -> None:
+        self.jobs: dict[str, GenerationJob] = {}
+        self.lock = threading.Lock()
+
+    def create_job(self) -> GenerationJob:
+        job = GenerationJob(id=uuid.uuid4().hex)
+        with self.lock:
+            self.jobs[job.id] = job
+        return job
+
+    def get_job(self, job_id: str) -> GenerationJob | None:
+        with self.lock:
+            return self.jobs.get(job_id)
+
+
+def create_server(host: str = "127.0.0.1", port: int = 8765) -> ThreadingHTTPServer:
+    state = WebState()
+
+    class RequestHandler(_WebRequestHandler):
+        web_state = state
+
+    return ThreadingHTTPServer((host, port), RequestHandler)
+
+
+def run_web_app(
+    host: str = "127.0.0.1", port: int = 8765, open_browser: bool = True
+) -> None:
+    server = create_server(host, port)
+    actual_port = server.server_address[1]
+    url = f"http://{host}:{actual_port}"
+    print(f"Script2Video Studio is running at {url}")
+    print("Press Ctrl+C to stop it.")
+    if open_browser:
+        threading.Timer(0.35, webbrowser.open, args=(url,)).start()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nStopping Script2Video Studio.")
+    finally:
+        server.server_close()
+
+
+class _WebRequestHandler(BaseHTTPRequestHandler):
+    web_state: WebState
+
+    def do_GET(self) -> None:  # noqa: N802
+        path = urlparse(self.path).path
+        if path == "/api/bootstrap":
+            self._send_json(_bootstrap_payload())
+            return
+        if path.startswith("/api/jobs/"):
+            job_id = path.removeprefix("/api/jobs/")
+            job = self.web_state.get_job(job_id)
+            if job is None:
+                self._send_error(HTTPStatus.NOT_FOUND, "Generation job not found")
+                return
+            self._send_json(asdict(job))
+            return
+        self._serve_static(path)
+
+    def do_POST(self) -> None:  # noqa: N802
+        path = urlparse(self.path).path
+        try:
+            payload = self._read_json()
+            if path == "/api/inspect-script":
+                self._inspect_script(payload)
+            elif path == "/api/inspect-video":
+                self._inspect_video(payload)
+            elif path == "/api/pick":
+                self._pick_path(payload)
+            elif path == "/api/generate":
+                self._start_generation(payload)
+            elif path == "/api/open-output":
+                self._open_output(payload)
+            elif path == "/api/open-capcut":
+                self._open_capcut()
+            else:
+                self._send_error(HTTPStatus.NOT_FOUND, "Unknown API endpoint")
+        except (KeyError, TypeError, ValueError) as exc:
+            self._send_error(HTTPStatus.BAD_REQUEST, str(exc))
+        except Script2VideoError as exc:
+            self._send_error(HTTPStatus.UNPROCESSABLE_ENTITY, str(exc))
+
+    def log_message(self, format: str, *args: object) -> None:
+        if self.path.startswith("/api/"):
+            super().log_message(format, *args)
+
+    def _serve_static(self, request_path: str) -> None:
+        files = {
+            "/": "index.html",
+            "/index.html": "index.html",
+            "/app.css": "app.css",
+            "/app.js": "app.js",
+        }
+        filename = files.get(request_path)
+        if filename is None:
+            self._send_error(HTTPStatus.NOT_FOUND, "Page not found")
+            return
+        path = _STATIC_ROOT / filename
+        if not path.is_file():
+            self._send_error(HTTPStatus.NOT_FOUND, "UI asset not found")
+            return
+        content = path.read_bytes()
+        content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", f"{content_type}; charset=utf-8")
+        self.send_header("Content-Length", str(len(content)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(content)
+
+    def _read_json(self) -> dict[str, Any]:
+        length = int(self.headers.get("Content-Length", "0"))
+        if length <= 0 or length > _MAX_REQUEST_BYTES:
+            raise ValueError("Request body is missing or too large")
+        raw = self.rfile.read(length)
+        payload = json.loads(raw)
+        if not isinstance(payload, dict):
+            raise TypeError("Request must be a JSON object")
+        return payload
+
+    def _inspect_script(self, payload: dict[str, Any]) -> None:
+        path = _required_path(payload, "path")
+        project = load_project(path)
+        engine = _get_engine(project.engine)
+        voices = [
+            {"id": voice.id, "name": voice.name}
+            for voice in engine.list_voices()
+            if project.language in voice.languages
+        ]
+        self._send_json(
+            {
+                "path": str(path),
+                "title": project.title,
+                "language": project.language,
+                "engine": project.engine,
+                "voice": project.voice,
+                "scene_count": len(project.scenes),
+                "word_count": sum(len(scene.text.split()) for scene in project.scenes),
+                "voices": voices,
+            }
+        )
+
+    def _inspect_video(self, payload: dict[str, Any]) -> None:
+        info = probe_video(_required_path(payload, "path"))
+        self._send_json(
+            {
+                "path": str(info.path),
+                "duration_seconds": round(info.duration_seconds, 3),
+                "width": info.width,
+                "height": info.height,
+            }
+        )
+
+    def _pick_path(self, payload: dict[str, Any]) -> None:
+        kind = str(payload["kind"])
+        if kind not in {"script", "video", "folder"}:
+            raise ValueError("Picker kind must be script, video, or folder")
+        selected = _choose_local_path(kind)
+        self._send_json({"path": selected})
+
+    def _start_generation(self, payload: dict[str, Any]) -> None:
+        script = _required_path(payload, "script")
+        output = _required_path(payload, "output", must_exist=False)
+        video_value = str(payload.get("video", "")).strip()
+        video = Path(video_value).expanduser().resolve() if video_value else None
+        job = self.web_state.create_job()
+        thread = threading.Thread(
+            target=_run_generation_job,
+            args=(job, script, video, output, payload),
+            daemon=True,
+        )
+        thread.start()
+        self._send_json(asdict(job), status=HTTPStatus.ACCEPTED)
+
+    def _open_output(self, payload: dict[str, Any]) -> None:
+        path = _required_path(payload, "path")
+        _open_path(path)
+        self._send_json({"opened": str(path)})
+
+    def _open_capcut(self) -> None:
+        if sys.platform == "darwin":
+            command = ["open", "-a", "CapCut"]
+        elif sys.platform == "win32":
+            command = ["cmd", "/c", "start", "", "CapCut"]
+        else:
+            raise ValueError("Open CapCut manually on this operating system")
+        completed = subprocess.run(command, capture_output=True, check=False)
+        if completed.returncode != 0:
+            raise ValueError("CapCut could not be opened")
+        self._send_json({"opened": True})
+
+    def _send_json(
+        self, payload: dict[str, Any], status: HTTPStatus = HTTPStatus.OK
+    ) -> None:
+        content = json.dumps(payload).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(content)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(content)
+
+    def _send_error(self, status: HTTPStatus, message: str) -> None:
+        self._send_json({"error": message}, status=status)
+
+
+def _bootstrap_payload() -> dict[str, Any]:
+    example = Path.cwd() / "examples" / "minecraft.yaml"
+    return {
+        "platform": sys.platform,
+        "alignment_available": _AI_ALIGNMENT_AVAILABLE,
+        "default_script": str(example.resolve()) if example.is_file() else "",
+        "default_output": str((Path.cwd() / "builds" / "studio-output").resolve()),
+        "version": "0.4.0",
+    }
+
+
+def _get_engine(name: str) -> FakeEngine | KokoroEngine:
+    if name == "fake":
+        return FakeEngine()
+    if name == "kokoro":
+        return KokoroEngine()
+    raise ValueError(f"Unsupported engine: {name}")
+
+
+def _run_generation_job(
+    job: GenerationJob,
+    script_path: Path,
+    video_path: Path | None,
+    output_path: Path,
+    options: dict[str, Any],
+) -> None:
+    try:
+        job.status = "running"
+        job.message = "Reading script and preparing the voice"
+        project = load_project(script_path)
+        voice = str(options.get("voice", "")).strip()
+        if voice:
+            project = project.model_copy(update={"voice": voice})
+        engine_name = str(options.get("engine", project.engine))
+        engine = _get_engine(engine_name)
+
+        if video_path is None:
+            job.message = "Rendering narration scene by scene"
+            render_project(project, script_path, output_path, engine)
+        else:
+            job.message = "Matching narration and captions to the video"
+            use_alignment = bool(options.get("align", True))
+            aligner = (
+                MLXWhisperAligner(str(options.get("align_model", "tiny.en")))
+                if use_alignment and _AI_ALIGNMENT_AVAILABLE
+                else None
+            )
+            create_capcut_package(
+                project,
+                script_path,
+                video_path,
+                output_path,
+                engine,
+                fit_to_video=bool(options.get("fit", True)),
+                aligner=aligner,
+            )
+
+        job.status = "complete"
+        job.message = (
+            "CapCut package is ready"
+            if video_path is not None
+            else "Narration is ready"
+        )
+        job.output = str(output_path)
+        job.files = sorted(
+            path.name for path in output_path.iterdir() if path.is_file()
+        )
+    except Exception as exc:
+        job.status = "failed"
+        job.message = "Generation failed"
+        job.error = str(exc)
+
+
+def _required_path(payload: dict[str, Any], key: str, must_exist: bool = True) -> Path:
+    value = str(payload[key]).strip()
+    if not value:
+        raise ValueError(f"{key.replace('_', ' ').title()} is required")
+    path = Path(value).expanduser().resolve()
+    if must_exist and not path.exists():
+        raise ValueError(f"{key.replace('_', ' ').title()} does not exist: {path}")
+    return path
+
+
+def _choose_local_path(kind: str) -> str:
+    if sys.platform == "darwin":
+        kind_clause = "folder" if kind == "folder" else "file"
+        prompt = {
+            "script": "Choose a YAML script",
+            "video": "Choose a source video",
+            "folder": "Choose an output folder",
+        }[kind]
+        command = [
+            "osascript",
+            "-e",
+            f'POSIX path of (choose {kind_clause} with prompt "{prompt}")',
+        ]
+    elif sys.platform == "win32":
+        if kind == "folder":
+            script = (
+                "Add-Type -AssemblyName System.Windows.Forms; "
+                "$d=New-Object System.Windows.Forms.FolderBrowserDialog; "
+                "if($d.ShowDialog() -eq 'OK'){[Console]::OutputEncoding="
+                "[Text.Encoding]::UTF8;Write-Output $d.SelectedPath}"
+            )
+        else:
+            file_filter = (
+                "YAML scripts|*.yaml;*.yml|All files|*.*"
+                if kind == "script"
+                else "Video files|*.mp4;*.mov;*.mkv;*.webm|All files|*.*"
+            )
+            script = (
+                "Add-Type -AssemblyName System.Windows.Forms; "
+                "$d=New-Object System.Windows.Forms.OpenFileDialog; "
+                f"$d.Filter='{file_filter}'; "
+                "if($d.ShowDialog() -eq 'OK'){[Console]::OutputEncoding="
+                "[Text.Encoding]::UTF8;Write-Output $d.FileName}"
+            )
+        command = ["powershell", "-NoProfile", "-STA", "-Command", script]
+    else:
+        command = ["zenity", "--file-selection"]
+        if kind == "folder":
+            command.append("--directory")
+        elif kind == "script":
+            command.extend(["--file-filter", "YAML scripts | *.yaml *.yml"])
+        else:
+            command.extend(["--file-filter", "Video files | *.mp4 *.mov *.mkv *.webm"])
+
+    completed = subprocess.run(command, capture_output=True, text=True, check=False)
+    if completed.returncode != 0:
+        return ""
+    return completed.stdout.strip()
+
+
+def _open_path(path: Path) -> None:
+    if sys.platform == "win32":
+        command = ["explorer", str(path)]
+    elif sys.platform == "darwin":
+        command = ["open", str(path)]
+    else:
+        command = ["xdg-open", str(path)]
+    subprocess.Popen(command)
