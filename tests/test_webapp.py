@@ -15,9 +15,12 @@ class WebAppTests(unittest.TestCase):
     def test_bootstrap_exposes_local_defaults(self) -> None:
         payload = _bootstrap_payload()
 
-        self.assertEqual(payload["version"], "0.4.0")
+        self.assertEqual(payload["version"], "1.0.0")
         self.assertIn(payload["platform"], {"darwin", "linux", "win32"})
-        self.assertTrue(str(payload["default_output"]).endswith("builds/studio-output"))
+        self.assertEqual(
+            Path(str(payload["default_output"])).parts[-2:],
+            ("builds", "studio-output"),
+        )
 
     def test_web_job_can_generate_narration_with_fake_engine(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

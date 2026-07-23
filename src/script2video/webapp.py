@@ -118,6 +118,8 @@ class _WebRequestHandler(BaseHTTPRequestHandler):
                 self._open_output(payload)
             elif path == "/api/open-capcut":
                 self._open_capcut()
+            elif path == "/api/shutdown":
+                self._shutdown()
             else:
                 self._send_error(HTTPStatus.NOT_FOUND, "Unknown API endpoint")
         except (KeyError, TypeError, ValueError) as exc:
@@ -234,6 +236,10 @@ class _WebRequestHandler(BaseHTTPRequestHandler):
             raise ValueError("CapCut could not be opened")
         self._send_json({"opened": True})
 
+    def _shutdown(self) -> None:
+        self._send_json({"stopping": True})
+        threading.Thread(target=self.server.shutdown, daemon=True).start()
+
     def _send_json(
         self, payload: dict[str, Any], status: HTTPStatus = HTTPStatus.OK
     ) -> None:
@@ -256,7 +262,7 @@ def _bootstrap_payload() -> dict[str, Any]:
         "alignment_available": _AI_ALIGNMENT_AVAILABLE,
         "default_script": str(example.resolve()) if example.is_file() else "",
         "default_output": str((Path.cwd() / "builds" / "studio-output").resolve()),
-        "version": "0.4.0",
+        "version": "1.0.0",
     }
 
 

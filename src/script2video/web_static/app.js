@@ -32,6 +32,7 @@ const elements = {
   successCopy: document.querySelector("#success-copy"),
   openOutput: document.querySelector("#open-output"),
   openCapCut: document.querySelector("#open-capcut"),
+  quitStudio: document.querySelector("#quit-studio"),
   toast: document.querySelector("#toast"),
 };
 
@@ -376,5 +377,19 @@ elements.openOutput.addEventListener("click", () =>
 elements.openCapCut.addEventListener("click", () =>
   openAction("/api/open-capcut"),
 );
+elements.quitStudio.addEventListener("click", async () => {
+  if (!window.confirm("Quit Script2Video Studio?")) return;
+  try {
+    await api("/api/shutdown", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    document.body.innerHTML =
+      '<main class="stopped-screen"><p class="eyebrow">Studio stopped</p>' +
+      "<h1>You can close this tab.</h1></main>";
+  } catch (error) {
+    showToast(error.message);
+  }
+});
 
 initialize();

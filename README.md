@@ -14,6 +14,10 @@ files.
 > does not require a video. Add a video only when you want a timed CapCut
 > package with captions.
 
+> **Version 1.0.0:** The Windows application build produces a normal installer
+> with a native executable, Start Menu shortcut, and uninstaller. The Kokoro
+> model downloads on first use to keep the installer smaller.
+
 ## Choose a workflow
 
 | Goal | Video required? | Result |
@@ -301,6 +305,7 @@ pipeline can be tested end to end without a hosted API or model download.
 
 - [Stage 1 design](docs/stage-1-design.md)
 - [CapCut package design](docs/m3-capcut.md)
+- [Windows application packaging](docs/windows-packaging.md)
 
 ## License
 
