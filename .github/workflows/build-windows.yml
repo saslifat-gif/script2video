@@ -14,7 +14,7 @@ on:
       - "v*"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -52,8 +52,21 @@ jobs:
         run: .\scripts\build-windows.ps1
 
       - name: Upload Windows installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: Script2Video-Studio-1.0.0-Windows-x64
           path: release/Script2Video-Studio-1.0.0-Windows-x64.exe
           if-no-files-found: error
+
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$env:GITHUB_REF_NAME" `
+            "release/Script2Video-Studio-1.0.0-Windows-x64.exe#Windows x64 installer" `
+            --repo "$env:GITHUB_REPOSITORY" `
+            --title "Script2Video Studio $env:GITHUB_REF_NAME" `
+            --notes "First packaged Windows release of Script2Video Studio. Includes the local Studio UI, script-to-voice rendering, subtitle generation and alignment, and the Windows desktop launcher. The Kokoro voice model downloads on first use. This installer is currently unsigned, so Windows SmartScreen may show a warning." `
+            --verify-tag
