@@ -1,5 +1,12 @@
 const elements = {
   version: document.querySelector("#version"),
+  textMode: document.querySelector("#text-mode"),
+  yamlMode: document.querySelector("#yaml-mode"),
+  textSource: document.querySelector("#text-source"),
+  yamlSource: document.querySelector("#yaml-source"),
+  narrationText: document.querySelector("#narration-text"),
+  textMessage: document.querySelector("#text-message"),
+  characterCount: document.querySelector("#character-count"),
   scriptPath: document.querySelector("#script-path"),
   videoPath: document.querySelector("#video-path"),
   outputPath: document.querySelector("#output-path"),
@@ -10,6 +17,7 @@ const elements = {
   scriptMessage: document.querySelector("#script-message"),
   videoMessage: document.querySelector("#video-message"),
   scriptState: document.querySelector("#script-state"),
+  languageSelect: document.querySelector("#language-select"),
   voiceSelect: document.querySelector("#voice-select"),
   fitToggle: document.querySelector("#fit-toggle"),
   alignToggle: document.querySelector("#align-toggle"),
@@ -19,7 +27,7 @@ const elements = {
   projectTitle: document.querySelector("#project-title"),
   sceneCount: document.querySelector("#scene-count"),
   wordCount: document.querySelector("#word-count"),
-  language: document.querySelector("#language"),
+  summaryLanguage: document.querySelector("#language"),
   duration: document.querySelector("#duration"),
   deliveryMode: document.querySelector("#delivery-mode"),
   deliveryFiles: document.querySelector("#delivery-files"),
@@ -38,7 +46,9 @@ const elements = {
 
 const state = {
   bootstrap: null,
+  sourceMode: "text",
   script: null,
+  textVoices: [],
   video: null,
   generating: false,
   output: "",
@@ -63,10 +73,52 @@ async function initialize() {
     elements.version.textContent = `v${state.bootstrap.version}`;
     elements.outputPath.value = state.bootstrap.default_output;
     elements.scriptPath.value = state.bootstrap.default_script;
+    populateLanguages();
     configureAlignment();
-    if (state.bootstrap.default_script) {
-      await inspectScript();
-    }
+    await loadTextVoices();
+  } catch (error) {
+    showToast(error.message);
+  }
+  updateInterface();
+}
+
+function populateLanguages() {
+  elements.languageSelect.replaceChildren();
+  for (const language of state.bootstrap.languages) {
+    elements.languageSelect.add(
+      new Option(formatLanguageName(language), language),
+    );
+  }
+  elements.languageSelect.value = state.bootstrap.default_language;
+}
+
+function formatLanguageName(language) {
+  const [base, region] = language.split("-");
+  try {
+    const names = new Intl.DisplayNames([navigator.language], {
+      type: "language",
+    });
+    const languageName = names.of(base) || language;
+    return region ? `${languageName} · ${language}` : languageName;
+  } catch {
+    return language;
+  }
+}
+
+async function loadTextVoices() {
+  state.textVoices = [];
+  elements.voiceSelect.replaceChildren(new Option("Loading voices…", ""));
+  updateInterface();
+  try {
+    const result = await api("/api/voices", {
+      method: "POST",
+      body: JSON.stringify({
+        engine: "kokoro",
+        language: elements.languageSelect.value,
+      }),
+    });
+    state.textVoices = result.voices;
+    populateVoices();
   } catch (error) {
     showToast(error.message);
   }
@@ -136,6 +188,9 @@ async function inspectScript() {
     elements.scriptMessage.className = "field-message success";
     elements.scriptMessage.textContent =
       `${state.script.scene_count} scenes · ${state.script.language} · ${state.script.engine}`;
+    elements.languageSelect.replaceChildren(
+      new Option(state.script.language, state.script.language),
+    );
     populateVoices();
   } catch (error) {
     elements.scriptMessage.className = "field-message error";
@@ -147,19 +202,79 @@ async function inspectScript() {
 function populateVoices() {
   const previous = elements.voiceSelect.value;
   elements.voiceSelect.replaceChildren();
-  const scriptOption = new Option(
-    `Use script voice · ${state.script.voice}`,
-    "",
-  );
-  elements.voiceSelect.add(scriptOption);
-  for (const voice of state.script.voices) {
+  const voices =
+    state.sourceMode === "text" ? state.textVoices : state.script?.voices || [];
+  if (state.sourceMode === "yaml" && state.script) {
+    elements.voiceSelect.add(
+      new Option(`Use script voice · ${state.script.voice}`, ""),
+    );
+  }
+  for (const voice of voices) {
     elements.voiceSelect.add(new Option(`${voice.name} · ${voice.id}`, voice.id));
   }
-  elements.voiceSelect.value = [...elements.voiceSelect.options].some(
+  const hasPrevious = [...elements.voiceSelect.options].some(
     (option) => option.value === previous,
-  )
-    ? previous
-    : "";
+  );
+  if (hasPrevious) {
+    elements.voiceSelect.value = previous;
+  } else if (state.sourceMode === "text") {
+    const preferred = voices.find((voice) => voice.id === "af_heart");
+    elements.voiceSelect.value = preferred?.id || voices[0]?.id || "";
+  } else {
+    elements.voiceSelect.value = "";
+  }
+}
+
+function setSourceMode(mode) {
+  if (mode === state.sourceMode || state.generating) return;
+  state.sourceMode = mode;
+  const textActive = mode === "text";
+  elements.textMode.classList.toggle("active", textActive);
+  elements.yamlMode.classList.toggle("active", !textActive);
+  elements.textMode.setAttribute("aria-selected", String(textActive));
+  elements.yamlMode.setAttribute("aria-selected", String(!textActive));
+  elements.textSource.hidden = !textActive;
+  elements.yamlSource.hidden = textActive;
+  elements.successPanel.hidden = true;
+  if (textActive) {
+    populateLanguages();
+    loadTextVoices();
+  } else if (state.script) {
+    elements.languageSelect.replaceChildren(
+      new Option(state.script.language, state.script.language),
+    );
+    populateVoices();
+  } else {
+    populateLanguages();
+    elements.voiceSelect.replaceChildren(
+      new Option("Choose a YAML script first", ""),
+    );
+  }
+  updateInterface();
+}
+
+function textStats() {
+  const text = elements.narrationText.value.trim();
+  const words = text ? text.split(/\s+/).length : 0;
+  const scenes = text
+    ? text.split(/\n\s*\n/).filter((paragraph) => paragraph.trim()).length
+    : 0;
+  const firstLine = text.split(/\n/).find((line) => line.trim())?.trim() || "";
+  return { text, words, scenes, title: firstLine || "Paste text to begin" };
+}
+
+function updateTextSource() {
+  const stats = textStats();
+  elements.characterCount.textContent =
+    `${stats.words} ${stats.words === 1 ? "word" : "words"}`;
+  elements.textMessage.className = stats.text
+    ? "field-message success"
+    : "field-message";
+  elements.textMessage.textContent = stats.text
+    ? `${stats.scenes} ${stats.scenes === 1 ? "scene" : "scenes"} ready`
+    : "Each paragraph automatically becomes a scene.";
+  elements.successPanel.hidden = true;
+  updateInterface();
 }
 
 async function inspectVideo() {
@@ -204,14 +319,24 @@ function clearVideo() {
 function updateInterface() {
   const hasVideoPath = Boolean(elements.videoPath.value.trim());
   const videoReady = !hasVideoPath || Boolean(state.video);
+  const text = textStats();
+  const sourceReady =
+    state.sourceMode === "text"
+      ? Boolean(text.text && state.textVoices.length && elements.voiceSelect.value)
+      : Boolean(state.script);
   const ready =
-    Boolean(state.script) &&
+    sourceReady &&
     videoReady &&
     Boolean(elements.outputPath.value.trim()) &&
     !state.generating;
 
   elements.clearVideo.hidden = !hasVideoPath;
-  elements.voiceSelect.disabled = !state.script || state.generating;
+  elements.narrationText.disabled = state.generating;
+  elements.textMode.disabled = state.generating;
+  elements.yamlMode.disabled = state.generating;
+  elements.languageSelect.disabled =
+    state.sourceMode === "yaml" || state.generating;
+  elements.voiceSelect.disabled = !sourceReady || state.generating;
   elements.fitToggle.disabled = !state.video || state.generating;
   elements.alignToggle.disabled =
     !state.video ||
@@ -225,27 +350,43 @@ function updateInterface() {
     ? "Video + captions"
     : "Narration only";
 
+  const textFile =
+    state.sourceMode === "text"
+      ? `<li><span class="file-type">TXT</span> Saved source text</li>`
+      : "";
   elements.deliveryFiles.innerHTML = state.video
     ? `<li><span class="file-type">WAV</span> Fitted narration track</li>
        <li><span class="file-type">SRT</span> Editable subtitles</li>
-       <li><span class="file-type">JSON</span> Timing manifest</li>`
+       <li><span class="file-type">JSON</span> Timing manifest</li>
+       ${textFile}`
     : `<li><span class="file-type">WAV</span> Narration track</li>
-       <li><span class="file-type">JSON</span> Timing manifest</li>`;
+       <li><span class="file-type">JSON</span> Timing manifest</li>
+       ${textFile}`;
 
-  if (state.script) {
+  if (state.sourceMode === "text" && text.text) {
+    elements.scriptState.textContent = "Ready";
+    elements.scriptState.className = "step-state valid";
+    elements.projectTitle.textContent =
+      text.title.length > 60 ? `${text.title.slice(0, 57)}...` : text.title;
+    elements.sceneCount.textContent = text.scenes;
+    elements.wordCount.textContent = text.words;
+    elements.summaryLanguage.textContent = elements.languageSelect.value;
+  } else if (state.sourceMode === "yaml" && state.script) {
     elements.scriptState.textContent = "Ready";
     elements.scriptState.className = "step-state valid";
     elements.projectTitle.textContent = state.script.title;
     elements.sceneCount.textContent = state.script.scene_count;
     elements.wordCount.textContent = state.script.word_count;
-    elements.language.textContent = state.script.language;
+    elements.summaryLanguage.textContent = state.script.language;
   } else {
     elements.scriptState.textContent = "Required";
     elements.scriptState.className = "step-state";
-    elements.projectTitle.textContent = "Choose a YAML script";
+    elements.projectTitle.textContent =
+      state.sourceMode === "text" ? "Paste text to begin" : "Choose a YAML script";
     elements.sceneCount.textContent = "—";
     elements.wordCount.textContent = "—";
-    elements.language.textContent = "—";
+    elements.summaryLanguage.textContent =
+      state.sourceMode === "text" ? elements.languageSelect.value || "—" : "—";
   }
   elements.duration.textContent = state.video
     ? formatDuration(state.video.duration_seconds)
@@ -275,7 +416,13 @@ async function generate() {
     const job = await api("/api/generate", {
       method: "POST",
       body: JSON.stringify({
-        script: elements.scriptPath.value.trim(),
+        source_type: state.sourceMode,
+        text:
+          state.sourceMode === "text" ? elements.narrationText.value.trim() : "",
+        script:
+          state.sourceMode === "yaml" ? elements.scriptPath.value.trim() : "",
+        language: elements.languageSelect.value,
+        engine: state.sourceMode === "text" ? "kokoro" : state.script.engine,
         video: elements.videoPath.value.trim(),
         output: state.output,
         voice: elements.voiceSelect.value,
@@ -363,6 +510,11 @@ function formatDuration(totalSeconds) {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
+elements.textMode.addEventListener("click", () => setSourceMode("text"));
+elements.yamlMode.addEventListener("click", () => setSourceMode("yaml"));
+elements.narrationText.addEventListener("input", updateTextSource);
+elements.languageSelect.addEventListener("change", loadTextVoices);
+elements.voiceSelect.addEventListener("change", updateInterface);
 elements.chooseScript.addEventListener("click", () => choose("script"));
 elements.chooseVideo.addEventListener("click", () => choose("video"));
 elements.chooseOutput.addEventListener("click", () => choose("folder"));

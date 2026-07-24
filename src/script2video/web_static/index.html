@@ -25,7 +25,7 @@
             <span class="privacy-dot" aria-hidden="true"></span>
             Local workspace
           </span>
-          <span class="version" id="version">v1.0.0</span>
+          <span class="version" id="version">v1.0.2</span>
         </div>
       </header>
 
@@ -53,27 +53,73 @@
                 <span class="step-number">01</span>
                 <div>
                   <h2 id="source-title">Source</h2>
-                  <p>Choose the script you want to narrate.</p>
+                  <p>Paste text or use a reusable YAML script.</p>
                 </div>
                 <span class="step-state" id="script-state">Required</span>
               </div>
 
-              <label class="field-label" for="script-path">YAML script</label>
-              <div class="path-control">
-                <input
-                  id="script-path"
-                  type="text"
-                  autocomplete="off"
-                  spellcheck="false"
-                  placeholder="Choose a .yaml script"
-                />
-                <button class="browse-button" id="choose-script" type="button">
-                  Browse
+              <div class="source-tabs" role="tablist" aria-label="Script source">
+                <button
+                  class="source-tab active"
+                  id="text-mode"
+                  type="button"
+                  role="tab"
+                  aria-selected="true"
+                >
+                  Paste text
+                </button>
+                <button
+                  class="source-tab"
+                  id="yaml-mode"
+                  type="button"
+                  role="tab"
+                  aria-selected="false"
+                >
+                  YAML file
                 </button>
               </div>
-              <p class="field-message" id="script-message">
-                A script defines your scenes, language, and default voice.
-              </p>
+
+              <div id="text-source" role="tabpanel" aria-labelledby="text-mode">
+                <label class="field-label" for="narration-text">
+                  Narration text
+                </label>
+                <textarea
+                  id="narration-text"
+                  rows="8"
+                  spellcheck="true"
+                  placeholder="Paste the words you want spoken here. Separate paragraphs with a blank line to create multiple scenes."
+                ></textarea>
+                <div class="field-message-row">
+                  <p class="field-message" id="text-message">
+                    Each paragraph automatically becomes a scene.
+                  </p>
+                  <span class="character-count" id="character-count">0 words</span>
+                </div>
+              </div>
+
+              <div
+                id="yaml-source"
+                role="tabpanel"
+                aria-labelledby="yaml-mode"
+                hidden
+              >
+                <label class="field-label" for="script-path">YAML script</label>
+                <div class="path-control">
+                  <input
+                    id="script-path"
+                    type="text"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="Choose a .yaml script"
+                  />
+                  <button class="browse-button" id="choose-script" type="button">
+                    Browse
+                  </button>
+                </div>
+                <p class="field-message" id="script-message">
+                  A script defines your scenes, language, and default voice.
+                </p>
+              </div>
 
               <div class="optional-divider">
                 <span>Optional video</span>
@@ -113,10 +159,17 @@
                 <span class="step-state neutral">Local AI</span>
               </div>
 
+              <label class="field-label" for="language-select">Language</label>
+              <div class="select-wrap narration-field">
+                <select id="language-select" disabled>
+                  <option value="en-US">English (United States)</option>
+                </select>
+              </div>
+
               <label class="field-label" for="voice-select">Voice</label>
               <div class="select-wrap">
                 <select id="voice-select" disabled>
-                  <option value="">Use the script voice</option>
+                  <option value="">Choose a voice</option>
                 </select>
               </div>
 
@@ -171,7 +224,7 @@
                 <span class="button-arrow" aria-hidden="true">→</span>
               </button>
               <p class="privacy-note">
-                Your script and media remain on this computer.
+                Your text and media remain on this computer.
               </p>
             </section>
           </div>
@@ -207,7 +260,7 @@
 
             <div class="project-summary">
               <p class="summary-kicker">Current script</p>
-              <h3 id="project-title">Choose a YAML script</h3>
+              <h3 id="project-title">Paste text to begin</h3>
               <div class="metrics">
                 <div>
                   <strong id="scene-count">—</strong>

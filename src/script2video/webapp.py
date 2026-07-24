@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import re
 import subprocess
 import sys
 import threading
@@ -18,7 +19,7 @@ from urllib.parse import urlparse
 
 from script2video.alignment import MLXWhisperAligner
 from script2video.capcut import create_capcut_package
-from script2video.config import load_project
+from script2video.config import ProjectConfig, SceneConfig, load_project
 from script2video.engines.fake import FakeEngine
 from script2video.engines.kokoro import KokoroEngine
 from script2video.errors import Script2VideoError
@@ -112,6 +113,8 @@ class _WebRequestHandler(BaseHTTPRequestHandler):
                 self._inspect_video(payload)
             elif path == "/api/pick":
                 self._pick_path(payload)
+            elif path == "/api/voices":
+                self._list_voices(payload)
             elif path == "/api/generate":
                 self._start_generation(payload)
             elif path == "/api/open-output":
@@ -205,15 +208,44 @@ class _WebRequestHandler(BaseHTTPRequestHandler):
         selected = _choose_local_path(kind)
         self._send_json({"path": selected})
 
+    def _list_voices(self, payload: dict[str, Any]) -> None:
+        engine_name = str(payload.get("engine", "kokoro")).strip()
+        language = str(payload.get("language", "en-US")).strip()
+        engine = _get_engine(engine_name)
+        voices = [
+            {"id": voice.id, "name": voice.name}
+            for voice in engine.list_voices()
+            if language in voice.languages
+        ]
+        if not voices:
+            raise ValueError(
+                f"No {engine_name} voices are available for language '{language}'"
+            )
+        self._send_json(
+            {"engine": engine_name, "language": language, "voices": voices}
+        )
+
     def _start_generation(self, payload: dict[str, Any]) -> None:
-        script = _required_path(payload, "script")
         output = _required_path(payload, "output", must_exist=False)
         video_value = str(payload.get("video", "")).strip()
         video = Path(video_value).expanduser().resolve() if video_value else None
         job = self.web_state.create_job()
+        source_type = str(payload.get("source_type", "yaml")).strip()
+        if source_type == "text":
+            text = str(payload.get("text", "")).strip()
+            if not text:
+                raise ValueError("Narration text is required")
+            target = _run_text_generation_job
+            args = (job, text, video, output, payload)
+        elif source_type == "yaml":
+            script = _required_path(payload, "script")
+            target = _run_generation_job
+            args = (job, script, video, output, payload)
+        else:
+            raise ValueError("Source type must be text or yaml")
         thread = threading.Thread(
-            target=_run_generation_job,
-            args=(job, script, video, output, payload),
+            target=target,
+            args=args,
             daemon=True,
         )
         thread.start()
@@ -257,12 +289,21 @@ class _WebRequestHandler(BaseHTTPRequestHandler):
 
 def _bootstrap_payload() -> dict[str, Any]:
     example = Path.cwd() / "examples" / "minecraft.yaml"
+    languages = sorted(
+        {
+            language
+            for voice in KokoroEngine().list_voices()
+            for language in voice.languages
+        }
+    )
     return {
         "platform": sys.platform,
         "alignment_available": _AI_ALIGNMENT_AVAILABLE,
         "default_script": str(example.resolve()) if example.is_file() else "",
         "default_output": str((Path.cwd() / "builds" / "studio-output").resolve()),
-        "version": "1.0.0",
+        "default_language": "en-US",
+        "languages": languages,
+        "version": "1.0.2",
     }
 
 
@@ -290,42 +331,111 @@ def _run_generation_job(
             project = project.model_copy(update={"voice": voice})
         engine_name = str(options.get("engine", project.engine))
         engine = _get_engine(engine_name)
-
-        if video_path is None:
-            job.message = "Rendering narration scene by scene"
-            render_project(project, script_path, output_path, engine)
-        else:
-            job.message = "Matching narration and captions to the video"
-            use_alignment = bool(options.get("align", True))
-            aligner = (
-                MLXWhisperAligner(str(options.get("align_model", "tiny.en")))
-                if use_alignment and _AI_ALIGNMENT_AVAILABLE
-                else None
-            )
-            create_capcut_package(
-                project,
-                script_path,
-                video_path,
-                output_path,
-                engine,
-                fit_to_video=bool(options.get("fit", True)),
-                aligner=aligner,
-            )
-
-        job.status = "complete"
-        job.message = (
-            "CapCut package is ready"
-            if video_path is not None
-            else "Narration is ready"
-        )
-        job.output = str(output_path)
-        job.files = sorted(
-            path.name for path in output_path.iterdir() if path.is_file()
+        _render_generation(
+            job, project, script_path, video_path, output_path, options, engine
         )
     except Exception as exc:
-        job.status = "failed"
-        job.message = "Generation failed"
-        job.error = str(exc)
+        _fail_job(job, exc)
+
+
+def _run_text_generation_job(
+    job: GenerationJob,
+    text: str,
+    video_path: Path | None,
+    output_path: Path,
+    options: dict[str, Any],
+) -> None:
+    try:
+        job.status = "running"
+        job.message = "Preparing your text and voice"
+        engine_name = str(options.get("engine", "kokoro")).strip()
+        language = str(options.get("language", "en-US")).strip()
+        voice = str(options.get("voice", "")).strip()
+        if not voice:
+            raise ValueError("Voice is required")
+        project = _project_from_text(text, language, engine_name, voice)
+        output_path.mkdir(parents=True, exist_ok=True)
+        input_path = output_path / "script.txt"
+        input_path.write_text(f"{text.strip()}\n", encoding="utf-8")
+        _render_generation(
+            job,
+            project,
+            input_path,
+            video_path,
+            output_path,
+            options,
+            _get_engine(engine_name),
+        )
+    except Exception as exc:
+        _fail_job(job, exc)
+
+
+def _project_from_text(
+    text: str, language: str, engine: str, voice: str
+) -> ProjectConfig:
+    paragraphs = [
+        paragraph.strip()
+        for paragraph in re.split(r"\n\s*\n", text.strip())
+        if paragraph.strip()
+    ]
+    if not paragraphs:
+        raise ValueError("Narration text is required")
+    first_line = " ".join(paragraphs[0].split())
+    title = first_line[:57] + "..." if len(first_line) > 60 else first_line
+    return ProjectConfig(
+        title=title,
+        language=language,
+        engine=engine,
+        voice=voice,
+        scenes=[
+            SceneConfig(id=f"paragraph-{index:03d}", text=paragraph)
+            for index, paragraph in enumerate(paragraphs, start=1)
+        ],
+    )
+
+
+def _render_generation(
+    job: GenerationJob,
+    project: ProjectConfig,
+    input_path: Path,
+    video_path: Path | None,
+    output_path: Path,
+    options: dict[str, Any],
+    engine: FakeEngine | KokoroEngine,
+) -> None:
+    if video_path is None:
+        job.message = "Rendering narration scene by scene"
+        render_project(project, input_path, output_path, engine)
+    else:
+        job.message = "Matching narration and captions to the video"
+        use_alignment = bool(options.get("align", True))
+        aligner = (
+            MLXWhisperAligner(str(options.get("align_model", "tiny.en")))
+            if use_alignment and _AI_ALIGNMENT_AVAILABLE
+            else None
+        )
+        create_capcut_package(
+            project,
+            input_path,
+            video_path,
+            output_path,
+            engine,
+            fit_to_video=bool(options.get("fit", True)),
+            aligner=aligner,
+        )
+
+    job.status = "complete"
+    job.message = (
+        "CapCut package is ready" if video_path is not None else "Narration is ready"
+    )
+    job.output = str(output_path)
+    job.files = sorted(path.name for path in output_path.iterdir() if path.is_file())
+
+
+def _fail_job(job: GenerationJob, error: Exception) -> None:
+    job.status = "failed"
+    job.message = "Generation failed"
+    job.error = str(error)
 
 
 def _required_path(payload: dict[str, Any], key: str, must_exist: bool = True) -> Path:

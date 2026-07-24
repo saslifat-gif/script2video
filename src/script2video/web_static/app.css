@@ -40,7 +40,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -280,6 +281,38 @@ h1 {
   font-weight: 750;
 }
 
+.source-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-bottom: 20px;
+  padding: 4px;
+  border-radius: 12px;
+  background: #eff1ec;
+}
+
+.source-tab {
+  height: 38px;
+  border: 0;
+  border-radius: 9px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.source-tab.active {
+  color: var(--ink);
+  background: white;
+  box-shadow: 0 1px 5px rgba(28, 34, 29, 0.1);
+}
+
+.source-tab:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 .path-control {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -287,10 +320,10 @@ h1 {
 }
 
 .path-control input,
-.select-wrap select {
+.select-wrap select,
+#narration-text {
   width: 100%;
   min-width: 0;
-  height: 46px;
   border: 1px solid var(--line-strong);
   border-radius: 11px;
   outline: none;
@@ -302,14 +335,39 @@ h1 {
     box-shadow 160ms ease;
 }
 
+.path-control input,
+.select-wrap select {
+  height: 46px;
+}
+
 .path-control input {
   padding: 0 13px;
 }
 
 .path-control input:focus,
-.select-wrap select:focus {
+.select-wrap select:focus,
+#narration-text:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(52, 92, 73, 0.11);
+}
+
+#narration-text {
+  min-height: 176px;
+  padding: 13px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+#narration-text::placeholder {
+  color: var(--quiet);
+}
+
+.character-count {
+  flex: 0 0 auto;
+  padding: 5px 0 0 12px;
+  color: var(--quiet);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
 }
 
 .browse-button {
@@ -411,6 +469,10 @@ h1 {
 .select-wrap select:disabled {
   color: var(--quiet);
   opacity: 0.7;
+}
+
+.narration-field {
+  margin-bottom: 18px;
 }
 
 .settings-list {
