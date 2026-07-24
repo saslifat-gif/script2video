@@ -2,8 +2,8 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-一套本地优先的工具，可将结构化 YAML 脚本转换为旁白、定时字幕，以及可在
-CapCut 中继续编辑的素材包。
+一套本地优先的工具，可将直接粘贴的文本或结构化 YAML 脚本转换为旁白、定时字幕，
+以及可在 CapCut 中继续编辑的素材包。
 
 `script2video` 在你的电脑上完成语音生成和对齐。它可以逐场景渲染旁白、让
 旁白时长适配现有视频，并生成标准 WAV、SRT 和 JSON 文件，无需修改 CapCut
@@ -12,8 +12,8 @@ CapCut 中继续编辑的素材包。
 > **状态：** 已可在 macOS 和 Windows 上本地使用。生成旁白不需要视频；只有在
 > 需要带字幕和计时信息的 CapCut 素材包时才需要选择视频。
 
-> **版本 1.0.0：** Windows 构建会生成标准安装程序，其中包含原生可执行文件、
-> 开始菜单快捷方式和卸载程序。Kokoro 模型会在首次使用时下载，以减小安装包。
+> **版本 1.0.2：** 现在可以直接在 Studio 中粘贴文本并生成语音，无需编写 YAML。
+> 空行分隔的段落会自动成为场景。Kokoro 模型会在首次使用时下载，以减小安装包。
 
 ## 选择工作流程
 
@@ -114,14 +114,15 @@ Kokoro 通常会通过 Python 依赖提供音素支持。如果某个声音提�
 ### 不选择视频，直接生成旁白
 
 1. 打开 Script2Video Studio。
-2. 在 **Script（脚本）** 中选择 `examples/minecraft.yaml` 或你自己的 YAML 文件。
+2. 保持选择 **Paste text（粘贴文本）**，输入需要朗读的内容。
 3. 保持 **Video（视频）** 为空。
-4. 选择输出文件夹和声音，或保留 **Use script voice（使用脚本声音）**。
+4. 选择语言、声音和输出文件夹。
 5. 点击 **Generate Narration（生成旁白）**。
 6. 完成后点击 **Open Output（打开输出）**。
 
-输出文件夹包含 `narration.wav`、`manifest.json` 和各场景的独立 WAV 文件。
-此工作流程不需要 FFmpeg。
+每个段落会自动成为一个场景。输出文件夹包含 `script.txt`、`narration.wav`、
+`manifest.json` 和各场景的独立 WAV 文件。此工作流程不需要 FFmpeg。需要复用
+逐场景声音、语速和停顿设置时，可切换到 **YAML file（YAML 文件）**。
 
 ### 选择视频，创建 CapCut 素材包
 
@@ -151,6 +152,8 @@ script2video capcut examples/minecraft.yaml \
 ## 功能
 
 - 使用 [Kokoro](https://github.com/hexgrad/kokoro) 在本地生成自然语音。
+- 直接粘贴文本生成语音，无需编写 YAML。
+- 自动把空行分隔的段落转换为场景。
 - 无需选择视频即可生成旁白。
 - 分别渲染每个场景，并合成为一条标准化旁白。
 - 根据原始脚本文本生成可编辑的 SRT 字幕。
@@ -163,7 +166,7 @@ script2video capcut examples/minecraft.yaml \
 ## 工作原理
 
 ```text
-YAML 脚本
+粘贴文本或 YAML 脚本
     |
     +-- 无视频 --> narration.wav + 场景 WAV + manifest.json
     |

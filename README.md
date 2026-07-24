@@ -2,8 +2,8 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-Local-first tools for turning a structured YAML script into narration, timed
-captions, and an editable CapCut package.
+Local-first tools for turning pasted text or a structured YAML script into
+narration, timed captions, and an editable CapCut package.
 
 `script2video` runs speech generation and alignment on your machine. It can
 render narration scene by scene, fit the result to an existing video, and
@@ -14,9 +14,9 @@ files.
 > does not require a video. Add a video only when you want a timed CapCut
 > package with captions.
 
-> **Version 1.0.0:** The Windows application build produces a normal installer
-> with a native executable, Start Menu shortcut, and uninstaller. The Kokoro
-> model downloads on first use to keep the installer smaller.
+> **Version 1.0.2:** Paste text directly into Studio and generate a voice track
+> without creating YAML. Blank-line paragraphs automatically become scenes.
+> The Kokoro model downloads on first use to keep the installer smaller.
 
 ## Choose a workflow
 
@@ -122,14 +122,16 @@ your computer. Keep the terminal window open while using Studio; press
 ### Generate narration without a video
 
 1. Open the companion UI.
-2. For **Script**, choose `examples/minecraft.yaml` or your own YAML file.
+2. Keep **Paste text** selected and enter the words you want spoken.
 3. Leave **Video** empty.
-4. Choose an output folder and select a voice, or keep **Use script voice**.
+4. Choose a language, voice, and output folder.
 5. Select **Generate Narration**.
 6. When generation finishes, select **Open Output**.
 
-The output contains `narration.wav`, `manifest.json`, and the individual scene
-WAV files. FFmpeg is not required for this workflow.
+Each paragraph becomes a scene automatically. The output contains `script.txt`,
+`narration.wav`, `manifest.json`, and the individual scene WAV files. FFmpeg is
+not required for this workflow. Select **YAML file** when you want reusable
+per-scene voice, speed, and pause settings.
 
 ### Build a CapCut package with a video
 
@@ -160,6 +162,8 @@ The result is ready in `builds/minecraft-capcut/` as `narration.wav`,
 ## Features
 
 - Generate natural speech locally with [Kokoro](https://github.com/hexgrad/kokoro).
+- Paste text and generate a voice track without writing YAML.
+- Turn blank-line paragraphs into scenes automatically.
 - Generate narration without selecting a video.
 - Render each scene separately and combine it into one normalized narration.
 - Create editable SRT captions from the exact supplied script.
@@ -172,7 +176,7 @@ The result is ready in `builds/minecraft-capcut/` as `narration.wav`,
 ## How it works
 
 ```text
-YAML script
+Pasted text or YAML script
     |
     +-- no video --> narration.wav + scene WAVs + manifest.json
     |
@@ -245,11 +249,12 @@ For implementation details, see
 
 ## Studio workflow
 
-The responsive browser workspace lets you choose a YAML script, source video,
-output folder, and voice. It shows script and video details before generation,
-tracks the active job, opens the output folder, and can launch CapCut. Browser
-rendering provides consistent high-DPI typography and layout on Windows and
-macOS.
+The responsive browser workspace accepts pasted text by default and keeps YAML
+as an advanced reusable option. Choose a language, voice, optional source
+video, and output folder; Studio shows source and video details before
+generation, tracks the active job, opens the output folder, and can launch
+CapCut. Browser rendering provides consistent high-DPI typography and layout on
+Windows and macOS.
 
 Studio exports standard files instead of editing CapCut projects
 directly because CapCut does not provide a documented desktop plugin SDK.
