@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import os
 import re
 import subprocess
 import sys
 import threading
 import uuid
 import webbrowser
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from http import HTTPStatus
@@ -15,8 +17,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from platform import machine
 from typing import Any
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
+from script2video import __version__
 from script2video.alignment import MLXWhisperAligner
 from script2video.capcut import create_capcut_package
 from script2video.config import ProjectConfig, SceneConfig, load_project
@@ -29,6 +34,10 @@ from script2video.video import probe_video
 _STATIC_ROOT = Path(__file__).with_name("web_static")
 _AI_ALIGNMENT_AVAILABLE = sys.platform == "darwin" and machine() == "arm64"
 _MAX_REQUEST_BYTES = 1_000_000
+_RELEASES_URL = "https://github.com/saslifat-gif/script2video/releases"
+_LATEST_RELEASE_API = (
+    "https://api.github.com/repos/saslifat-gif/script2video/releases/latest"
+)
 
 
 @dataclass
@@ -43,9 +52,10 @@ class GenerationJob:
 
 
 class WebState:
-    def __init__(self) -> None:
+    def __init__(self, shutdown_callback: Callable[[], None] | None = None) -> None:
         self.jobs: dict[str, GenerationJob] = {}
         self.lock = threading.Lock()
+        self.shutdown_callback = shutdown_callback
 
     def create_job(self) -> GenerationJob:
         job = GenerationJob(id=uuid.uuid4().hex)
@@ -58,8 +68,12 @@ class WebState:
             return self.jobs.get(job_id)
 
 
-def create_server(host: str = "127.0.0.1", port: int = 8765) -> ThreadingHTTPServer:
-    state = WebState()
+def create_server(
+    host: str = "127.0.0.1",
+    port: int = 8765,
+    shutdown_callback: Callable[[], None] | None = None,
+) -> ThreadingHTTPServer:
+    state = WebState(shutdown_callback)
 
     class RequestHandler(_WebRequestHandler):
         web_state = state
@@ -93,6 +107,9 @@ class _WebRequestHandler(BaseHTTPRequestHandler):
         if path == "/api/bootstrap":
             self._send_json(_bootstrap_payload())
             return
+        if path == "/api/update":
+            self._send_json(_update_payload())
+            return
         if path.startswith("/api/jobs/"):
             job_id = path.removeprefix("/api/jobs/")
             job = self.web_state.get_job(job_id)
@@ -121,14 +138,21 @@ class _WebRequestHandler(BaseHTTPRequestHandler):
                 self._open_output(payload)
             elif path == "/api/open-capcut":
                 self._open_capcut()
+            elif path == "/api/open-url":
+                self._open_url(payload)
             elif path == "/api/shutdown":
                 self._shutdown()
             else:
                 self._send_error(HTTPStatus.NOT_FOUND, "Unknown API endpoint")
-        except (KeyError, TypeError, ValueError) as exc:
+        except (KeyError, OSError, TypeError, ValueError) as exc:
             self._send_error(HTTPStatus.BAD_REQUEST, str(exc))
         except Script2VideoError as exc:
             self._send_error(HTTPStatus.UNPROCESSABLE_ENTITY, str(exc))
+        except Exception as exc:
+            self._send_error(
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                f"Unexpected application error: {exc}",
+            )
 
     def log_message(self, format: str, *args: object) -> None:
         if self.path.startswith("/api/"):
@@ -268,8 +292,23 @@ class _WebRequestHandler(BaseHTTPRequestHandler):
             raise ValueError("CapCut could not be opened")
         self._send_json({"opened": True})
 
+    def _open_url(self, payload: dict[str, Any]) -> None:
+        url = str(payload["url"]).strip()
+        parsed = urlparse(url)
+        if parsed.scheme != "https" or parsed.hostname != "github.com":
+            raise ValueError("Only Script2Video GitHub links can be opened")
+        if not parsed.path.startswith("/saslifat-gif/script2video/"):
+            raise ValueError("Only Script2Video GitHub links can be opened")
+        if not webbrowser.open(url):
+            raise ValueError("The update page could not be opened")
+        self._send_json({"opened": url})
+
     def _shutdown(self) -> None:
         self._send_json({"stopping": True})
+        if self.web_state.shutdown_callback is not None:
+            threading.Thread(
+                target=self.web_state.shutdown_callback, daemon=True
+            ).start()
         threading.Thread(target=self.server.shutdown, daemon=True).start()
 
     def _send_json(
@@ -300,11 +339,68 @@ def _bootstrap_payload() -> dict[str, Any]:
         "platform": sys.platform,
         "alignment_available": _AI_ALIGNMENT_AVAILABLE,
         "default_script": str(example.resolve()) if example.is_file() else "",
-        "default_output": str((Path.cwd() / "builds" / "studio-output").resolve()),
+        "default_output": str(_default_output_path()),
         "default_language": "en-US",
         "languages": languages,
-        "version": "1.0.2",
+        "version": __version__,
+        "releases_url": _RELEASES_URL,
     }
+
+
+def _default_output_path() -> Path:
+    if getattr(sys, "frozen", False):
+        return (Path.home() / "Documents" / "Script2Video Studio").resolve()
+    return (Path.cwd() / "builds" / "studio-output").resolve()
+
+
+def _update_payload() -> dict[str, Any]:
+    request = Request(
+        _LATEST_RELEASE_API,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": f"Script2Video-Studio/{__version__}",
+            "X-GitHub-Api-Version": "2026-03-10",
+        },
+    )
+    try:
+        with urlopen(request, timeout=4) as response:  # noqa: S310
+            release = json.load(response)
+        latest_version = str(release["tag_name"]).lstrip("v")
+        release_url = str(release.get("html_url") or _RELEASES_URL)
+        download_url = release_url
+        for asset in release.get("assets", []):
+            name = str(asset.get("name", ""))
+            if name.endswith("-Windows-x64.exe"):
+                download_url = str(asset.get("browser_download_url") or release_url)
+                break
+        return {
+            "checked": True,
+            "available": _version_tuple(latest_version)
+            > _version_tuple(__version__),
+            "current_version": __version__,
+            "latest_version": latest_version,
+            "release_url": release_url,
+            "download_url": download_url,
+        }
+    except (HTTPError, KeyError, TypeError, URLError, ValueError) as exc:
+        return {
+            "checked": False,
+            "available": False,
+            "current_version": __version__,
+            "latest_version": None,
+            "release_url": _RELEASES_URL,
+            "download_url": _RELEASES_URL,
+            "error": str(exc),
+        }
+
+
+def _version_tuple(value: str) -> tuple[int, int, int]:
+    numbers = re.findall(r"\d+", value)
+    if not numbers:
+        raise ValueError(f"Invalid release version: {value}")
+    parts = [int(part) for part in numbers[:3]]
+    parts.extend([0] * (3 - len(parts)))
+    return (parts[0], parts[1], parts[2])
 
 
 def _get_engine(name: str) -> FakeEngine | KokoroEngine:
@@ -500,9 +596,16 @@ def _choose_local_path(kind: str) -> str:
 
 def _open_path(path: Path) -> None:
     if sys.platform == "win32":
-        command = ["explorer", str(path)]
+        try:
+            os.startfile(path)  # type: ignore[attr-defined]
+        except OSError as exc:
+            raise ValueError(f"Could not open output folder: {exc}") from exc
+        return
     elif sys.platform == "darwin":
         command = ["open", str(path)]
     else:
         command = ["xdg-open", str(path)]
-    subprocess.Popen(command)
+    try:
+        subprocess.Popen(command)
+    except OSError as exc:
+        raise ValueError(f"Could not open output folder: {exc}") from exc

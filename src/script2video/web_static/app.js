@@ -1,5 +1,10 @@
 const elements = {
   version: document.querySelector("#version"),
+  updateBanner: document.querySelector("#update-banner"),
+  updateTitle: document.querySelector("#update-title"),
+  updateCopy: document.querySelector("#update-copy"),
+  viewUpdate: document.querySelector("#view-update"),
+  dismissUpdate: document.querySelector("#dismiss-update"),
   textMode: document.querySelector("#text-mode"),
   yamlMode: document.querySelector("#yaml-mode"),
   textSource: document.querySelector("#text-source"),
@@ -19,6 +24,7 @@ const elements = {
   scriptState: document.querySelector("#script-state"),
   languageSelect: document.querySelector("#language-select"),
   voiceSelect: document.querySelector("#voice-select"),
+  voiceMessage: document.querySelector("#voice-message"),
   fitToggle: document.querySelector("#fit-toggle"),
   alignToggle: document.querySelector("#align-toggle"),
   alignmentDescription: document.querySelector("#alignment-description"),
@@ -40,6 +46,7 @@ const elements = {
   successCopy: document.querySelector("#success-copy"),
   openOutput: document.querySelector("#open-output"),
   openCapCut: document.querySelector("#open-capcut"),
+  checkUpdates: document.querySelector("#check-updates"),
   quitStudio: document.querySelector("#quit-studio"),
   toast: document.querySelector("#toast"),
 };
@@ -49,9 +56,13 @@ const state = {
   sourceMode: "text",
   script: null,
   textVoices: [],
+  voicesLoading: false,
+  voiceLoadError: "",
+  voiceRequest: 0,
   video: null,
   generating: false,
   output: "",
+  update: null,
   toastTimer: null,
 };
 
@@ -76,6 +87,7 @@ async function initialize() {
     populateLanguages();
     configureAlignment();
     await loadTextVoices();
+    checkForUpdates(false);
   } catch (error) {
     showToast(error.message);
   }
@@ -106,7 +118,10 @@ function formatLanguageName(language) {
 }
 
 async function loadTextVoices() {
+  const requestId = ++state.voiceRequest;
   state.textVoices = [];
+  state.voicesLoading = true;
+  state.voiceLoadError = "";
   elements.voiceSelect.replaceChildren(new Option("Loading voices…", ""));
   updateInterface();
   try {
@@ -117,10 +132,20 @@ async function loadTextVoices() {
         language: elements.languageSelect.value,
       }),
     });
+    if (requestId !== state.voiceRequest) return;
     state.textVoices = result.voices;
     populateVoices();
   } catch (error) {
+    if (requestId !== state.voiceRequest) return;
+    state.voiceLoadError = error.message;
+    elements.voiceSelect.replaceChildren(
+      new Option("Voices could not be loaded", ""),
+    );
     showToast(error.message);
+  } finally {
+    if (requestId === state.voiceRequest) {
+      state.voicesLoading = false;
+    }
   }
   updateInterface();
 }
@@ -240,11 +265,15 @@ function setSourceMode(mode) {
     populateLanguages();
     loadTextVoices();
   } else if (state.script) {
+    state.voiceRequest += 1;
+    state.voicesLoading = false;
     elements.languageSelect.replaceChildren(
       new Option(state.script.language, state.script.language),
     );
     populateVoices();
   } else {
+    state.voiceRequest += 1;
+    state.voicesLoading = false;
     populateLanguages();
     elements.voiceSelect.replaceChildren(
       new Option("Choose a YAML script first", ""),
@@ -320,9 +349,13 @@ function updateInterface() {
   const hasVideoPath = Boolean(elements.videoPath.value.trim());
   const videoReady = !hasVideoPath || Boolean(state.video);
   const text = textStats();
+  const voiceChoicesReady =
+    state.sourceMode === "text"
+      ? state.textVoices.length > 0
+      : Boolean(state.script);
   const sourceReady =
     state.sourceMode === "text"
-      ? Boolean(text.text && state.textVoices.length && elements.voiceSelect.value)
+      ? Boolean(text.text && voiceChoicesReady && elements.voiceSelect.value)
       : Boolean(state.script);
   const ready =
     sourceReady &&
@@ -336,7 +369,28 @@ function updateInterface() {
   elements.yamlMode.disabled = state.generating;
   elements.languageSelect.disabled =
     state.sourceMode === "yaml" || state.generating;
-  elements.voiceSelect.disabled = !sourceReady || state.generating;
+  elements.voiceSelect.disabled =
+    !voiceChoicesReady || state.voicesLoading || state.generating;
+  if (state.sourceMode === "yaml") {
+    elements.voiceMessage.className = "field-message";
+    elements.voiceMessage.textContent = state.script
+      ? "Use the script voice or choose an override."
+      : "Choose a YAML script to load its voices.";
+  } else if (state.voicesLoading) {
+    elements.voiceMessage.className = "field-message";
+    elements.voiceMessage.textContent = "Loading voices for this language…";
+  } else if (state.voiceLoadError) {
+    elements.voiceMessage.className = "field-message error";
+    elements.voiceMessage.textContent =
+      "Voices could not be loaded. Change language to retry.";
+  } else if (voiceChoicesReady) {
+    elements.voiceMessage.className = "field-message success";
+    elements.voiceMessage.textContent =
+      `${state.textVoices.length} voices available · choose any voice`;
+  } else {
+    elements.voiceMessage.className = "field-message";
+    elements.voiceMessage.textContent = "Choose a language to load voices.";
+  }
   elements.fitToggle.disabled = !state.video || state.generating;
   elements.alignToggle.disabled =
     !state.video ||
@@ -482,11 +536,60 @@ function setStatus(label, className, title) {
   elements.previewTitle.textContent = title;
 }
 
+async function checkForUpdates(manual) {
+  elements.checkUpdates.disabled = true;
+  elements.checkUpdates.textContent = "Checking…";
+  try {
+    const result = await api("/api/update");
+    state.update = result;
+    if (result.available) {
+      elements.updateTitle.textContent =
+        `Script2Video Studio v${result.latest_version} is available`;
+      elements.updateCopy.textContent =
+        `You are using v${result.current_version}. Download the latest Windows installer.`;
+      elements.updateBanner.hidden = false;
+    } else if (manual && result.checked) {
+      showToast(`You are up to date · v${result.current_version}`);
+    } else if (manual) {
+      showToast("Could not check for updates. Try again when you are online.");
+    }
+  } catch {
+    if (manual) {
+      showToast("Could not check for updates. Try again when you are online.");
+    }
+  } finally {
+    elements.checkUpdates.disabled = false;
+    elements.checkUpdates.textContent = "Check for updates";
+  }
+}
+
+async function viewUpdate() {
+  const url = state.update?.download_url || state.bootstrap.releases_url;
+  await openAction("/api/open-url", { url });
+}
+
 async function openAction(path, payload = {}) {
   try {
-    await api(path, { method: "POST", body: JSON.stringify(payload) });
+    return await api(path, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   } catch (error) {
     showToast(error.message);
+    return null;
+  }
+}
+
+async function openOutputFolder() {
+  elements.openOutput.disabled = true;
+  const original = elements.openOutput.textContent;
+  elements.openOutput.textContent = "Opening…";
+  try {
+    const result = await openAction("/api/open-output", { path: state.output });
+    if (result) showToast("Output folder opened");
+  } finally {
+    elements.openOutput.disabled = false;
+    elements.openOutput.textContent = original;
   }
 }
 
@@ -523,12 +626,15 @@ elements.generate.addEventListener("click", generate);
 elements.scriptPath.addEventListener("change", inspectScript);
 elements.videoPath.addEventListener("change", inspectVideo);
 elements.outputPath.addEventListener("input", updateInterface);
-elements.openOutput.addEventListener("click", () =>
-  openAction("/api/open-output", { path: state.output }),
-);
+elements.openOutput.addEventListener("click", openOutputFolder);
 elements.openCapCut.addEventListener("click", () =>
   openAction("/api/open-capcut"),
 );
+elements.checkUpdates.addEventListener("click", () => checkForUpdates(true));
+elements.viewUpdate.addEventListener("click", viewUpdate);
+elements.dismissUpdate.addEventListener("click", () => {
+  elements.updateBanner.hidden = true;
+});
 elements.quitStudio.addEventListener("click", async () => {
   if (!window.confirm("Quit Script2Video Studio?")) return;
   try {

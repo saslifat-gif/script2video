@@ -14,9 +14,30 @@ files.
 > does not require a video. Add a video only when you want a timed CapCut
 > package with captions.
 
-> **Version 1.0.2:** Paste text directly into Studio and generate a voice track
-> without creating YAML. Blank-line paragraphs automatically become scenes.
-> The Kokoro model downloads on first use to keep the installer smaller.
+> **Version 1.0.3:** The Windows application now opens Studio inside its own
+> desktop window, checks for updates, and fixes voice selection and output-folder
+> opening in Paste text mode. Blank-line paragraphs automatically become scenes.
+
+## Studio preview
+
+![Script2Video Studio v1.0.3 workspace](docs/screenshots/studio-v1.0.3-overview.png)
+
+The workspace keeps the script, narration settings, and production status in
+one view. Paste text is the default; YAML remains available for reusable,
+scene-level control.
+
+![Script2Video Studio with a two-scene script ready to generate](docs/screenshots/studio-v1.0.3-ready.png)
+
+### New in v1.0.3
+
+- Open Studio in an embedded Windows desktop window instead of a browser tab.
+- Check GitHub Releases automatically or with **Check for updates**.
+- Select any compatible voice after pasting text.
+- Convert blank-line paragraphs into scenes and show live scene and word counts.
+- Keep **Generate Narration** disabled until the script and voice are ready.
+- Show the completion panel only after files have actually been generated.
+- Open generated output folders reliably on Windows, macOS, and Linux.
+- Save packaged-app output to `Documents/Script2Video Studio` by default.
 
 ## Choose a workflow
 
@@ -112,10 +133,12 @@ On Windows PowerShell:
 .\.venv\Scripts\script2video.exe companion
 ```
 
-The command opens Script2Video Studio in your default browser. The interface is
+The packaged Windows application opens Script2Video Studio inside its own
+desktop window. The command-line `companion` command continues to use your
+default browser as a lightweight fallback. In both cases the interface is
 served only on `127.0.0.1`, so scripts, videos, and generated audio remain on
-your computer. Keep the terminal window open while using Studio; press
-`Ctrl+C` there when you are finished.
+your computer. Keep the terminal window open when using the command-line
+version; press `Ctrl+C` there when you are finished.
 
 ## Quick start
 
@@ -164,6 +187,8 @@ The result is ready in `builds/minecraft-capcut/` as `narration.wav`,
 - Generate natural speech locally with [Kokoro](https://github.com/hexgrad/kokoro).
 - Paste text and generate a voice track without writing YAML.
 - Turn blank-line paragraphs into scenes automatically.
+- Run the packaged UI inside a native desktop window.
+- Check GitHub Releases for updates without blocking offline use.
 - Generate narration without selecting a video.
 - Render each scene separately and combine it into one normalized narration.
 - Create editable SRT captions from the exact supplied script.
@@ -176,12 +201,29 @@ The result is ready in `builds/minecraft-capcut/` as `narration.wav`,
 ## How it works
 
 ```text
-Pasted text or YAML script
-    |
-    +-- no video --> narration.wav + scene WAVs + manifest.json
-    |
-    +-- video ----> narration.wav + captions.srt + scenes + manifest.json
+Native desktop window or browser companion
+                    |
+             Local Studio UI
+                    |
+          Paste text or YAML script
+                    |
+        +-----------+-----------+
+        |                       |
+     No video                Source video
+        |                       |
+  Kokoro narration       Duration fitting
+        |                 + caption alignment
+        |                       |
+ narration.wav          narration.wav + captions.srt
+ scene WAV files        scene WAV files
+ manifest.json          manifest.json
 ```
+
+Everything runs through a local server bound to `127.0.0.1`. The desktop
+launcher embeds that UI with pywebview and Windows Edge WebView2. If the native
+webview is unavailable, Script2Video opens the same local workspace in the
+default browser. Generation jobs run in the background so the interface can
+continue reporting progress.
 
 ## Script format
 
@@ -249,12 +291,12 @@ For implementation details, see
 
 ## Studio workflow
 
-The responsive browser workspace accepts pasted text by default and keeps YAML
-as an advanced reusable option. Choose a language, voice, optional source
-video, and output folder; Studio shows source and video details before
-generation, tracks the active job, opens the output folder, and can launch
-CapCut. Browser rendering provides consistent high-DPI typography and layout on
-Windows and macOS.
+The responsive workspace accepts pasted text by default and keeps YAML as an
+advanced reusable option. The packaged application displays it inside a native
+desktop window, with the system browser retained as a startup fallback. Choose
+a language, voice, optional source video, and output folder; Studio shows source
+and video details before generation, tracks the active job, opens the output
+folder, can launch CapCut, and checks GitHub Releases for updates.
 
 Studio exports standard files instead of editing CapCut projects
 directly because CapCut does not provide a documented desktop plugin SDK.
@@ -270,6 +312,31 @@ List all voices exposed by Kokoro:
 ```bash
 script2video voices --engine kokoro
 ```
+
+## Project structure
+
+```text
+script2video/
+├── src/script2video/
+│   ├── desktop.py          # Native application window and browser fallback
+│   ├── webapp.py           # Local API, jobs, updates, and output actions
+│   ├── web_static/         # Studio HTML, CSS, and JavaScript
+│   ├── engines/            # Kokoro and deterministic fake voice engines
+│   ├── pipeline.py         # Scene rendering and narration assembly
+│   ├── alignment.py        # Optional word-level speech alignment
+│   ├── captions.py         # Readable SRT cue creation
+│   ├── capcut.py           # Video fitting and CapCut package workflow
+│   └── cli.py              # validate, voices, render, capcut, companion
+├── packaging/windows/      # PyInstaller and Inno Setup configuration
+├── scripts/                # Windows release build automation
+├── examples/               # Paste-text and YAML examples
+├── docs/                   # Design, packaging, and UI screenshots
+└── tests/                  # Unit and regression tests
+```
+
+The UI talks only to the local API. The rendering pipeline is independent of
+the desktop shell, so the same narration and caption features are available
+from both Studio and the command line.
 
 ## Development
 
