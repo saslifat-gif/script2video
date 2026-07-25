@@ -18,6 +18,11 @@ files.
 > desktop window, checks for updates, and fixes voice selection and output-folder
 > opening in Paste text mode. Blank-line paragraphs automatically become scenes.
 
+> **Version 1.0.4 hotfix:** Restores the language registry required by Kokoro
+> inside the packaged Windows application. This fixes the
+> `language_tags/data/json/index.json` error seen when generating narration in
+> v1.0.3.
+
 ## Studio preview
 
 ![Script2Video Studio v1.0.3 workspace](docs/screenshots/studio-v1.0.3-overview.png)

@@ -25,7 +25,7 @@ class WebAppTests(unittest.TestCase):
     def test_bootstrap_exposes_local_defaults(self) -> None:
         payload = _bootstrap_payload()
 
-        self.assertEqual(payload["version"], "1.0.3")
+        self.assertEqual(payload["version"], "1.0.4")
         self.assertIn(payload["platform"], {"darwin", "linux", "win32"})
         self.assertEqual(
             Path(str(payload["default_output"])).parts[-2:],
@@ -88,7 +88,7 @@ class WebAppTests(unittest.TestCase):
 
         self.assertFalse(result["checked"])
         self.assertFalse(result["available"])
-        self.assertEqual(result["current_version"], "1.0.3")
+        self.assertEqual(result["current_version"], "1.0.4")
 
     def test_semantic_versions_compare_numerically(self) -> None:
         self.assertGreater(_version_tuple("1.10.0"), _version_tuple("1.9.9"))

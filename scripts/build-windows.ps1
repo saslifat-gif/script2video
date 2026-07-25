@@ -3,13 +3,18 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $ProjectRoot
 
-$Version = "1.0.3"
+$Version = "1.0.4"
 $IconScript = Join-Path $ProjectRoot "packaging\windows\generate_icon.py"
 $SpecFile = Join-Path $ProjectRoot "packaging\windows\script2video.spec"
 $InstallerFile = Join-Path $ProjectRoot "packaging\windows\installer.iss"
 
 python $IconScript
 python -m PyInstaller --noconfirm --clean $SpecFile
+
+$LanguageTagsIndex = Join-Path $ProjectRoot "dist\Script2Video Studio\_internal\language_tags\data\json\index.json"
+if (-not (Test-Path $LanguageTagsIndex)) {
+    throw "Packaged language-tags registry is missing: $LanguageTagsIndex"
+}
 
 $IsccCommand = Get-Command "ISCC.exe" -ErrorAction SilentlyContinue
 if ($IsccCommand) {

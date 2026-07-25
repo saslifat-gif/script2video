@@ -16,6 +16,10 @@
 > 同时修复粘贴文本模式无法选择声音和打开输出文件夹失败的问题。空行分隔的段落会
 > 自动成为场景。
 
+> **版本 1.0.4 热修复：** 将 Kokoro 所需的语言注册表重新包含到 Windows
+> 打包应用中，修复 v1.0.3 生成旁白时出现的
+> `language_tags/data/json/index.json` 文件缺失错误。
+
 ## Studio 界面预览
 
 ![Script2Video Studio v1.0.3 工作区](docs/screenshots/studio-v1.0.3-overview.png)
