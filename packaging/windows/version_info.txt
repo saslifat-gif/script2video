@@ -1,7 +1,7 @@
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(1, 0, 3, 0),
-    prodvers=(1, 0, 3, 0),
+    filevers=(1, 0, 4, 0),
+    prodvers=(1, 0, 4, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -16,12 +16,12 @@ VSVersionInfo(
         [
           StringStruct('CompanyName', 'Script2Video'),
           StringStruct('FileDescription', 'Script2Video Studio'),
-          StringStruct('FileVersion', '1.0.3'),
+          StringStruct('FileVersion', '1.0.4'),
           StringStruct('InternalName', 'Script2Video Studio'),
           StringStruct('LegalCopyright', 'Copyright 2026 Script2Video contributors'),
           StringStruct('OriginalFilename', 'Script2Video Studio.exe'),
           StringStruct('ProductName', 'Script2Video Studio'),
-          StringStruct('ProductVersion', '1.0.3')
+          StringStruct('ProductVersion', '1.0.4')
         ]
       )
     ]),

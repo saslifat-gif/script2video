@@ -76,5 +76,5 @@ jobs:
             "release/Script2Video-Studio-$env:APP_VERSION-Windows-x64.exe#Windows x64 installer" `
             --repo "$env:GITHUB_REPOSITORY" `
             --title "Script2Video Studio $env:GITHUB_REF_NAME" `
-            --notes "Fixes Paste text voice selection, generation readiness, packaged output paths, and output-folder opening. Studio now runs inside a native Edge WebView2 desktop window with a browser fallback and includes a non-blocking GitHub release update check. The Kokoro voice model downloads on first use. This installer is currently unsigned, so Windows SmartScreen may show a warning." `
+            --notes "Windows packaging hotfix: includes the language-tags JSON registry required by Kokoro, fixing the language_tags/data/json/index.json error in v1.0.3. Studio includes the embedded Edge WebView2 desktop window, Paste text narration workflow, and non-blocking update checks. The Kokoro voice model downloads on first use. This installer is currently unsigned, so Windows SmartScreen may show a warning." `
             --verify-tag
