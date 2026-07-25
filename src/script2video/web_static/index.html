@@ -25,11 +25,24 @@
             <span class="privacy-dot" aria-hidden="true"></span>
             Local workspace
           </span>
-          <span class="version" id="version">v1.0.2</span>
+          <span class="version" id="version">v1.0.3</span>
         </div>
       </header>
 
       <main>
+        <section class="update-banner" id="update-banner" hidden>
+          <div>
+            <strong id="update-title">A new version is available</strong>
+            <p id="update-copy">Download the latest Script2Video Studio update.</p>
+          </div>
+          <div class="update-actions">
+            <button id="view-update" type="button">View update</button>
+            <button id="dismiss-update" type="button" aria-label="Dismiss update">
+              Not now
+            </button>
+          </div>
+        </section>
+
         <section class="hero" aria-labelledby="page-title">
           <div>
             <p class="eyebrow">Voice and caption workspace</p>
@@ -172,6 +185,9 @@
                   <option value="">Choose a voice</option>
                 </select>
               </div>
+              <p class="field-message" id="voice-message">
+                Loading voices for the selected language.
+              </p>
 
               <div class="settings-list">
                 <label class="setting">
@@ -314,6 +330,7 @@
         <span>Script2Video Studio</span>
         <div class="footer-actions">
           <span>Local-first voice production</span>
+          <button id="check-updates" type="button">Check for updates</button>
           <button id="quit-studio" type="button">Quit Studio</button>
         </div>
       </footer>

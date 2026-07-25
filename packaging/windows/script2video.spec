@@ -25,7 +25,7 @@ hiddenimports = [
 
 # Kokoro loads its pipeline dynamically. Its language packages also rely on
 # data files and the platform-specific eSpeak NG library at runtime.
-for package in ("kokoro", "misaki", "espeakng_loader", "en_core_web_sm"):
+for package in ("kokoro", "misaki", "espeakng_loader", "en_core_web_sm", "webview"):
     package_datas, package_binaries, package_hidden = collect_all(package)
     datas += package_datas
     binaries += package_binaries
@@ -50,6 +50,11 @@ analysis = Analysis(
         "pytest",
         "setuptools",
         "tkinter",
+        "cefpython3",
+        "PyQt5",
+        "PyQt6",
+        "PySide2",
+        "PySide6",
     ],
     noarchive=False,
 )

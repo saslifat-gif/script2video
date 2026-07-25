@@ -12,8 +12,29 @@
 > **状态：** 已可在 macOS 和 Windows 上本地使用。生成旁白不需要视频；只有在
 > 需要带字幕和计时信息的 CapCut 素材包时才需要选择视频。
 
-> **版本 1.0.2：** 现在可以直接在 Studio 中粘贴文本并生成语音，无需编写 YAML。
-> 空行分隔的段落会自动成为场景。Kokoro 模型会在首次使用时下载，以减小安装包。
+> **版本 1.0.3：** Windows 应用现在会在独立桌面窗口中打开 Studio，并可检查更新；
+> 同时修复粘贴文本模式无法选择声音和打开输出文件夹失败的问题。空行分隔的段落会
+> 自动成为场景。
+
+## Studio 界面预览
+
+![Script2Video Studio v1.0.3 工作区](docs/screenshots/studio-v1.0.3-overview.png)
+
+工作区把脚本、旁白设置和生成状态集中在同一页面。默认可以直接粘贴文本，同时保留
+YAML 模式，用于复用逐场景的高级设置。
+
+![已识别两个场景并可开始生成的 Script2Video Studio](docs/screenshots/studio-v1.0.3-ready.png)
+
+### v1.0.3 新功能
+
+- 在 Windows 原生桌面窗口中打开 Studio，不再默认跳转浏览器标签页。
+- 启动后自动检查 GitHub Releases，也可以点击 **Check for updates** 手动检查。
+- 粘贴文本后可以正常选择所有兼容声音。
+- 自动把空行分隔的段落转换为场景，并实时显示场景数和字数。
+- 脚本和声音准备完成前，保持 **Generate Narration** 按钮不可用。
+- 只有文件真正生成完成后才显示完成面板。
+- 在 Windows、macOS 和 Linux 上可靠打开输出文件夹。
+- 打包应用默认把结果保存到 `Documents/Script2Video Studio`。
 
 ## 选择工作流程
 
@@ -105,9 +126,10 @@ Kokoro 通常会通过 Python 依赖提供音素支持。如果某个声音提�
 .\.venv\Scripts\script2video.exe companion
 ```
 
-该命令会在默认浏览器中打开 Script2Video Studio。页面只通过
-`127.0.0.1` 在本机提供，因此脚本、视频和生成的音频不会离开你的电脑。使用时请
-保持终端窗口开启，结束后在终端按 `Ctrl+C`。
+打包后的 Windows 应用会在独立桌面窗口中打开 Script2Video Studio。命令行
+`companion` 仍会使用默认浏览器作为轻量回退方式。两种方式都只通过
+`127.0.0.1` 在本机提供页面，因此脚本、视频和生成的音频不会离开你的电脑。
+使用命令行版本时请保持终端窗口开启，结束后在终端按 `Ctrl+C`。
 
 ## 快速开始
 
@@ -154,6 +176,8 @@ script2video capcut examples/minecraft.yaml \
 - 使用 [Kokoro](https://github.com/hexgrad/kokoro) 在本地生成自然语音。
 - 直接粘贴文本生成语音，无需编写 YAML。
 - 自动把空行分隔的段落转换为场景。
+- 在原生桌面窗口中运行打包后的界面。
+- 在不影响离线使用的情况下检查 GitHub Releases 更新。
 - 无需选择视频即可生成旁白。
 - 分别渲染每个场景，并合成为一条标准化旁白。
 - 根据原始脚本文本生成可编辑的 SRT 字幕。
@@ -166,12 +190,27 @@ script2video capcut examples/minecraft.yaml \
 ## 工作原理
 
 ```text
-粘贴文本或 YAML 脚本
-    |
-    +-- 无视频 --> narration.wav + 场景 WAV + manifest.json
-    |
-    +-- 有视频 --> narration.wav + captions.srt + 场景音频 + manifest.json
+原生桌面窗口或浏览器 Companion
+                  |
+             本地 Studio UI
+                  |
+          粘贴文本或 YAML 脚本
+                  |
+       +----------+----------+
+       |                     |
+     无视频                选择视频
+       |                     |
+  Kokoro 生成旁白       视频时长适配
+       |                + 字幕语音对齐
+       |                     |
+ narration.wav       narration.wav + captions.srt
+ 各场景 WAV           各场景 WAV
+ manifest.json       manifest.json
 ```
+
+所有功能都通过仅绑定到 `127.0.0.1` 的本地服务运行。桌面启动器使用 pywebview
+和 Windows Edge WebView2 嵌入界面；如果系统无法使用原生 WebView，应用会在
+默认浏览器中打开同一个本地工作区。生成任务在后台运行，因此界面可以持续显示进度。
 
 ## 脚本格式
 
@@ -254,6 +293,30 @@ Studio 通过标准文件导出，而不是直接修改 CapCut 项目，因为 C
 script2video voices --engine kokoro
 ```
 
+## 项目结构
+
+```text
+script2video/
+├── src/script2video/
+│   ├── desktop.py          # 原生应用窗口与浏览器回退
+│   ├── webapp.py           # 本地 API、任务、更新检查和输出操作
+│   ├── web_static/         # Studio HTML、CSS 和 JavaScript
+│   ├── engines/            # Kokoro 与确定性假语音引擎
+│   ├── pipeline.py         # 场景渲染与旁白合成
+│   ├── alignment.py        # 可选的单词级语音对齐
+│   ├── captions.py         # 易读的 SRT 字幕分段
+│   ├── capcut.py           # 视频时长适配与 CapCut 素材包
+│   └── cli.py              # validate、voices、render、capcut、companion
+├── packaging/windows/      # PyInstaller 与 Inno Setup 配置
+├── scripts/                # Windows 发布构建自动化
+├── examples/               # 文本与 YAML 示例
+├── docs/                   # 设计文档、打包说明和界面截图
+└── tests/                  # 单元测试与回归测试
+```
+
+界面只与本地 API 通信。渲染管线不依赖桌面外壳，因此 Studio 和命令行都可以使用
+同一套旁白与字幕功能。
+
 ## 开发
 
 只有希望修改源代码的贡献者才需要 Git。克隆仓库并以可编辑模式安装：
@@ -291,6 +354,7 @@ script2video render examples/demo.yaml \
 
 - [第一阶段设计](docs/stage-1-design.md)
 - [CapCut 素材包设计](docs/m3-capcut.md)
+- [Windows 应用打包](docs/windows-packaging.md)
 
 ## 许可证
 

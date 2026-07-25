@@ -24,6 +24,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 html {
   background: var(--paper);
 }
@@ -142,6 +146,55 @@ main {
   width: min(1420px, 91vw);
   margin: 0 auto;
   padding: 64px 0 72px;
+}
+
+.update-banner {
+  display: flex;
+  gap: 28px;
+  align-items: center;
+  justify-content: space-between;
+  margin: -22px 0 34px;
+  padding: 16px 18px;
+  border: 1px solid #bfd0c3;
+  border-radius: 14px;
+  background: #eff6f1;
+}
+
+.update-banner[hidden] {
+  display: none;
+}
+
+.update-banner strong {
+  font-size: 13px;
+}
+
+.update-banner p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.update-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.update-actions button {
+  height: 36px;
+  padding: 0 13px;
+  border: 1px solid #bfd0c3;
+  border-radius: 9px;
+  background: white;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.update-actions button:first-child {
+  border-color: var(--accent);
+  color: white;
+  background: var(--accent);
 }
 
 .hero {
@@ -1020,6 +1073,19 @@ footer {
     padding: 7px 10px;
   }
 
+  .update-banner {
+    display: block;
+    margin-top: -14px;
+  }
+
+  .update-banner[hidden] {
+    display: none;
+  }
+
+  .update-actions {
+    margin-top: 13px;
+  }
+
   main {
     width: calc(100% - 28px);
     padding: 38px 0 52px;
@@ -1061,6 +1127,11 @@ footer {
 
   footer {
     padding: 0 18px;
+  }
+
+  .footer-actions > span,
+  #check-updates {
+    display: none;
   }
 }
 
