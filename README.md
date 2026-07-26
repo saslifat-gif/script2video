@@ -2,8 +2,8 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-Local-first tools for turning pasted text or a structured YAML script into
-narration, timed captions, and an editable CapCut package.
+Local-first tools for turning pasted text, SRT subtitles, or a structured YAML
+script into narration, timed captions, and an editable CapCut package.
 
 `script2video` runs speech generation and alignment on your machine. It can
 render narration scene by scene, fit the result to an existing video, and
@@ -22,6 +22,10 @@ files.
 > inside the packaged Windows application. This fixes the
 > `language_tags/data/json/index.json` error seen when generating narration in
 > v1.0.3.
+
+> **Version 1.0.5:** Adds complete SRT script import. Every subtitle cue becomes
+> a narration scene, cue gaps become pauses, and Studio previews the cue count,
+> word count, and source timeline before generation.
 
 ## Studio preview
 
@@ -49,6 +53,7 @@ scene-level control.
 | Goal | Video required? | Result |
 | --- | --- | --- |
 | Generate voice narration | No | `narration.wav`, scene WAV files, and `manifest.json` |
+| Narrate a complete SRT script | No | One voice scene per subtitle cue plus the source SRT |
 | Build a CapCut package | Yes | Narration, editable `captions.srt`, scenes, and timing metadata |
 
 ## Install once
@@ -168,6 +173,27 @@ Follow the same steps, but choose a source video. The companion switches to
 timing metadata. Select **Remove video** at any time to return to narration-only
 mode.
 
+### Generate narration from an SRT script
+
+1. Open Studio and select **SRT file**.
+2. Choose a UTF-8 `.srt` subtitle file.
+3. Select the script language and narration voice.
+4. Choose **Generate Narration**.
+
+Every subtitle cue becomes an ordered narration scene. Multiline cues are
+joined into natural text, common subtitle formatting tags are removed, and
+gaps between cues become pauses. Studio shows the cue, word, and timeline
+counts before generation and saves a normalized copy as `source.srt`.
+
+The same workflow is available from the command line:
+
+```bash
+script2video render-srt examples/demo.srt \
+  --language en-US \
+  --voice af_heart \
+  --output builds/srt-demo
+```
+
 For command-line usage, validate a script and render its narration with:
 
 ```bash
@@ -191,6 +217,7 @@ The result is ready in `builds/minecraft-capcut/` as `narration.wav`,
 
 - Generate natural speech locally with [Kokoro](https://github.com/hexgrad/kokoro).
 - Paste text and generate a voice track without writing YAML.
+- Import a complete SRT file and automatically turn every cue into a scene.
 - Turn blank-line paragraphs into scenes automatically.
 - Run the packaged UI inside a native desktop window.
 - Check GitHub Releases for updates without blocking offline use.
@@ -210,7 +237,7 @@ Native desktop window or browser companion
                     |
              Local Studio UI
                     |
-          Paste text or YAML script
+        Paste text, SRT, or YAML script
                     |
         +-----------+-----------+
         |                       |
@@ -330,6 +357,7 @@ script2video/
 │   ├── pipeline.py         # Scene rendering and narration assembly
 │   ├── alignment.py        # Optional word-level speech alignment
 │   ├── captions.py         # Readable SRT cue creation
+│   ├── srt.py              # SRT import, cleanup, and cue-to-scene conversion
 │   ├── capcut.py           # Video fitting and CapCut package workflow
 │   └── cli.py              # validate, voices, render, capcut, companion
 ├── packaging/windows/      # PyInstaller and Inno Setup configuration

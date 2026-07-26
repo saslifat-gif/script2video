@@ -2,8 +2,8 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-一套本地优先的工具，可将直接粘贴的文本或结构化 YAML 脚本转换为旁白、定时字幕，
-以及可在 CapCut 中继续编辑的素材包。
+一套本地优先的工具，可将直接粘贴的文本、SRT 字幕或结构化 YAML 脚本转换为
+旁白、定时字幕，以及可在 CapCut 中继续编辑的素材包。
 
 `script2video` 在你的电脑上完成语音生成和对齐。它可以逐场景渲染旁白、让
 旁白时长适配现有视频，并生成标准 WAV、SRT 和 JSON 文件，无需修改 CapCut
@@ -19,6 +19,9 @@
 > **版本 1.0.4 热修复：** 将 Kokoro 所需的语言注册表重新包含到 Windows
 > 打包应用中，修复 v1.0.3 生成旁白时出现的
 > `language_tags/data/json/index.json` 文件缺失错误。
+
+> **版本 1.0.5：** 新增完整 SRT 脚本导入。每条字幕会成为一个旁白场景，字幕间隔
+> 会转换为停顿，Studio 会在生成前显示场景数、字数和源字幕总时长。
 
 ## Studio 界面预览
 
@@ -45,6 +48,7 @@ YAML 模式，用于复用逐场景的高级设置。
 | 目标 | 是否需要视频 | 输出 |
 | --- | --- | --- |
 | 生成语音旁白 | 否 | `narration.wav`、各场景 WAV 和 `manifest.json` |
+| 为完整 SRT 脚本生成旁白 | 否 | 每条字幕成为一个语音场景，并保存源 SRT |
 | 创建 CapCut 素材包 | 是 | 旁白、可编辑的 `captions.srt`、场景音频和计时信息 |
 
 ## 只需安装一次
@@ -156,6 +160,26 @@ Kokoro 通常会通过 Python 依赖提供音素支持。如果某个声音提�
 **Generate CapCut Package（生成 CapCut 素材包）**，并增加 `captions.srt`、
 时长适配和视频计时信息。随时点击 **Remove video（移除视频）** 即可返回纯旁白模式。
 
+### 从 SRT 脚本生成旁白
+
+1. 打开 Studio，选择 **SRT file**。
+2. 选择 UTF-8 编码的 `.srt` 字幕文件。
+3. 选择脚本语言和旁白声音。
+4. 点击 **Generate Narration（生成旁白）**。
+
+每条字幕会自动成为一个有序场景。多行字幕会合并为自然文本，常见字幕格式标签会
+被移除，字幕之间的时间间隔会成为旁白停顿。生成前，Studio 会显示场景数、字数和
+字幕总时长，并把标准化后的源文件保存为 `source.srt`。
+
+命令行也支持相同流程：
+
+```bash
+script2video render-srt examples/demo.srt \
+  --language en-US \
+  --voice af_heart \
+  --output builds/srt-demo
+```
+
 如果使用命令行，可通过以下命令验证脚本并渲染旁白：
 
 ```bash
@@ -179,6 +203,7 @@ script2video capcut examples/minecraft.yaml \
 
 - 使用 [Kokoro](https://github.com/hexgrad/kokoro) 在本地生成自然语音。
 - 直接粘贴文本生成语音，无需编写 YAML。
+- 导入完整 SRT 文件，自动把每条字幕转换为一个场景。
 - 自动把空行分隔的段落转换为场景。
 - 在原生桌面窗口中运行打包后的界面。
 - 在不影响离线使用的情况下检查 GitHub Releases 更新。
@@ -198,7 +223,7 @@ script2video capcut examples/minecraft.yaml \
                   |
              本地 Studio UI
                   |
-          粘贴文本或 YAML 脚本
+        粘贴文本、SRT 或 YAML 脚本
                   |
        +----------+----------+
        |                     |
@@ -309,6 +334,7 @@ script2video/
 │   ├── pipeline.py         # 场景渲染与旁白合成
 │   ├── alignment.py        # 可选的单词级语音对齐
 │   ├── captions.py         # 易读的 SRT 字幕分段
+│   ├── srt.py              # SRT 导入、清理和字幕到场景转换
 │   ├── capcut.py           # 视频时长适配与 CapCut 素材包
 │   └── cli.py              # validate、voices、render、capcut、companion
 ├── packaging/windows/      # PyInstaller 与 Inno Setup 配置
