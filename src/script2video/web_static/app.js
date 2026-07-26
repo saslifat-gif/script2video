@@ -6,25 +6,20 @@ const elements = {
   viewUpdate: document.querySelector("#view-update"),
   dismissUpdate: document.querySelector("#dismiss-update"),
   textMode: document.querySelector("#text-mode"),
-  srtMode: document.querySelector("#srt-mode"),
   yamlMode: document.querySelector("#yaml-mode"),
   textSource: document.querySelector("#text-source"),
-  srtSource: document.querySelector("#srt-source"),
   yamlSource: document.querySelector("#yaml-source"),
   narrationText: document.querySelector("#narration-text"),
   textMessage: document.querySelector("#text-message"),
   characterCount: document.querySelector("#character-count"),
   scriptPath: document.querySelector("#script-path"),
-  srtPath: document.querySelector("#srt-path"),
   videoPath: document.querySelector("#video-path"),
   outputPath: document.querySelector("#output-path"),
   chooseScript: document.querySelector("#choose-script"),
-  chooseSrt: document.querySelector("#choose-srt"),
   chooseVideo: document.querySelector("#choose-video"),
   chooseOutput: document.querySelector("#choose-output"),
   clearVideo: document.querySelector("#clear-video"),
   scriptMessage: document.querySelector("#script-message"),
-  srtMessage: document.querySelector("#srt-message"),
   videoMessage: document.querySelector("#video-message"),
   scriptState: document.querySelector("#script-state"),
   languageSelect: document.querySelector("#language-select"),
@@ -60,7 +55,6 @@ const state = {
   bootstrap: null,
   sourceMode: "text",
   script: null,
-  srt: null,
   textVoices: [],
   voicesLoading: false,
   voiceLoadError: "",
@@ -176,9 +170,6 @@ async function choose(kind) {
     if (kind === "script") {
       elements.scriptPath.value = result.path;
       await inspectScript();
-    } else if (kind === "subtitle") {
-      elements.srtPath.value = result.path;
-      await inspectSrt();
     } else if (kind === "video") {
       elements.videoPath.value = result.path;
       await inspectVideo();
@@ -196,7 +187,6 @@ async function choose(kind) {
 function setBusyPicker(kind, busy) {
   const button = {
     script: elements.chooseScript,
-    subtitle: elements.chooseSrt,
     video: elements.chooseVideo,
     folder: elements.chooseOutput,
   }[kind];
@@ -234,32 +224,6 @@ async function inspectScript() {
   updateInterface();
 }
 
-async function inspectSrt() {
-  const path = elements.srtPath.value.trim();
-  state.srt = null;
-  elements.srtMessage.className = "field-message";
-  elements.srtMessage.textContent = "Reading subtitle cues…";
-  updateInterface();
-  if (!path) {
-    elements.srtMessage.textContent =
-      "Each subtitle cue automatically becomes a narration scene.";
-    return;
-  }
-  try {
-    state.srt = await api("/api/inspect-srt", {
-      method: "POST",
-      body: JSON.stringify({ path }),
-    });
-    elements.srtMessage.className = "field-message success";
-    elements.srtMessage.textContent =
-      `${state.srt.scene_count} scenes · ${state.srt.word_count} words · ${formatDuration(state.srt.duration_ms / 1000)}`;
-  } catch (error) {
-    elements.srtMessage.className = "field-message error";
-    elements.srtMessage.textContent = error.message;
-  }
-  updateInterface();
-}
-
 function populateVoices() {
   const previous = elements.voiceSelect.value;
   elements.voiceSelect.replaceChildren();
@@ -290,19 +254,15 @@ function setSourceMode(mode) {
   if (mode === state.sourceMode || state.generating) return;
   state.sourceMode = mode;
   const textActive = mode === "text";
-  const srtActive = mode === "srt";
   const yamlActive = mode === "yaml";
   elements.textMode.classList.toggle("active", textActive);
-  elements.srtMode.classList.toggle("active", srtActive);
   elements.yamlMode.classList.toggle("active", yamlActive);
   elements.textMode.setAttribute("aria-selected", String(textActive));
-  elements.srtMode.setAttribute("aria-selected", String(srtActive));
   elements.yamlMode.setAttribute("aria-selected", String(yamlActive));
   elements.textSource.hidden = !textActive;
-  elements.srtSource.hidden = !srtActive;
   elements.yamlSource.hidden = !yamlActive;
   elements.successPanel.hidden = true;
-  if (textActive || srtActive) {
+  if (textActive) {
     populateLanguages();
     loadTextVoices();
   } else if (state.script) {
@@ -326,11 +286,27 @@ function setSourceMode(mode) {
 function textStats() {
   const text = elements.narrationText.value.trim();
   const words = text ? text.split(/\s+/).length : 0;
-  const scenes = text
-    ? text.split(/\n\s*\n/).filter((paragraph) => paragraph.trim()).length
-    : 0;
+  const scenes = splitTextScenes(text).length;
   const firstLine = text.split(/\n/).find((line) => line.trim())?.trim() || "";
   return { text, words, scenes, title: firstLine || "Paste text to begin" };
+}
+
+function splitTextScenes(text) {
+  const clean = text.trim();
+  if (!clean) return [];
+  if (typeof Intl.Segmenter !== "function") {
+    return clean
+      .split(/(?<=[.!?。！？])\s+|\n\s*\n+/)
+      .map((sentence) => sentence.trim())
+      .filter(Boolean);
+  }
+  const segmenter = new Intl.Segmenter(
+    elements.languageSelect.value || "en-US",
+    { granularity: "sentence" },
+  );
+  return [...segmenter.segment(clean)]
+    .map((entry) => entry.segment.trim())
+    .filter(Boolean);
 }
 
 function updateTextSource() {
@@ -342,7 +318,7 @@ function updateTextSource() {
     : "field-message";
   elements.textMessage.textContent = stats.text
     ? `${stats.scenes} ${stats.scenes === 1 ? "scene" : "scenes"} ready`
-    : "Each paragraph automatically becomes a scene.";
+    : "Every sentence automatically becomes a scene and subtitle.";
   elements.successPanel.hidden = true;
   updateInterface();
 }
@@ -354,7 +330,7 @@ async function inspectVideo() {
   updateInterface();
   if (!path) {
     elements.videoMessage.textContent =
-      "Leave empty when you only need narration.";
+      "Optional. Subtitles are generated even without a video.";
     return;
   }
   elements.videoMessage.textContent = "Inspecting video…";
@@ -381,7 +357,8 @@ function clearVideo() {
   elements.videoPath.value = "";
   state.video = null;
   elements.videoMessage.className = "field-message";
-  elements.videoMessage.textContent = "Leave empty when you only need narration.";
+  elements.videoMessage.textContent =
+    "Optional. Subtitles are generated even without a video.";
   elements.successPanel.hidden = true;
   updateInterface();
 }
@@ -396,7 +373,6 @@ function updateInterface() {
       : state.textVoices.length > 0;
   const sourceReady = {
     text: Boolean(text.text && voiceChoicesReady && elements.voiceSelect.value),
-    srt: Boolean(state.srt && voiceChoicesReady && elements.voiceSelect.value),
     yaml: Boolean(state.script),
   }[state.sourceMode];
   const ready =
@@ -407,9 +383,7 @@ function updateInterface() {
 
   elements.clearVideo.hidden = !hasVideoPath;
   elements.narrationText.disabled = state.generating;
-  elements.srtPath.disabled = state.generating;
   elements.textMode.disabled = state.generating;
-  elements.srtMode.disabled = state.generating;
   elements.yamlMode.disabled = state.generating;
   elements.languageSelect.disabled =
     state.sourceMode === "yaml" || state.generating;
@@ -443,23 +417,22 @@ function updateInterface() {
   elements.generate.disabled = !ready;
   elements.generateLabel.textContent = state.video
     ? "Generate CapCut package"
-    : "Generate narration";
+    : "Generate voice + subtitles";
   elements.deliveryMode.textContent = state.video
     ? "Video + captions"
-    : "Narration only";
+    : "Voice + subtitles";
 
   const sourceFile =
     state.sourceMode === "text"
       ? `<li><span class="file-type">TXT</span> Saved source text</li>`
-      : state.sourceMode === "srt"
-        ? `<li><span class="file-type">SRT</span> Imported subtitle script</li>`
-        : "";
+      : "";
   elements.deliveryFiles.innerHTML = state.video
     ? `<li><span class="file-type">WAV</span> Fitted narration track</li>
        <li><span class="file-type">SRT</span> Editable subtitles</li>
        <li><span class="file-type">JSON</span> Timing manifest</li>
        ${sourceFile}`
     : `<li><span class="file-type">WAV</span> Narration track</li>
+       <li><span class="file-type">SRT</span> Timed subtitles</li>
        <li><span class="file-type">JSON</span> Timing manifest</li>
        ${sourceFile}`;
 
@@ -478,22 +451,13 @@ function updateInterface() {
     elements.sceneCount.textContent = state.script.scene_count;
     elements.wordCount.textContent = state.script.word_count;
     elements.summaryLanguage.textContent = state.script.language;
-  } else if (state.sourceMode === "srt" && state.srt) {
-    elements.scriptState.textContent = "Ready";
-    elements.scriptState.className = "step-state valid";
-    elements.projectTitle.textContent = state.srt.title;
-    elements.sceneCount.textContent = state.srt.scene_count;
-    elements.wordCount.textContent = state.srt.word_count;
-    elements.summaryLanguage.textContent = elements.languageSelect.value;
   } else {
     elements.scriptState.textContent = "Required";
     elements.scriptState.className = "step-state";
     elements.projectTitle.textContent =
       state.sourceMode === "text"
         ? "Paste text to begin"
-        : state.sourceMode === "srt"
-          ? "Choose an SRT subtitle file"
-          : "Choose a YAML script";
+        : "Choose a YAML script";
     elements.sceneCount.textContent = "—";
     elements.wordCount.textContent = "—";
     elements.summaryLanguage.textContent =
@@ -501,9 +465,7 @@ function updateInterface() {
   }
   elements.duration.textContent = state.video
     ? formatDuration(state.video.duration_seconds)
-    : state.sourceMode === "srt" && state.srt
-      ? formatDuration(state.srt.duration_ms / 1000)
-      : "--:--";
+    : "--:--";
 
   if (!state.generating) {
     setStatus(
@@ -535,9 +497,7 @@ async function generate() {
         script:
           state.sourceMode === "yaml"
             ? elements.scriptPath.value.trim()
-            : state.sourceMode === "srt"
-              ? elements.srtPath.value.trim()
-              : "",
+            : "",
         language: elements.languageSelect.value,
         engine: state.sourceMode === "yaml" ? state.script.engine : "kokoro",
         video: elements.videoPath.value.trim(),
@@ -677,19 +637,16 @@ function formatDuration(totalSeconds) {
 }
 
 elements.textMode.addEventListener("click", () => setSourceMode("text"));
-elements.srtMode.addEventListener("click", () => setSourceMode("srt"));
 elements.yamlMode.addEventListener("click", () => setSourceMode("yaml"));
 elements.narrationText.addEventListener("input", updateTextSource);
 elements.languageSelect.addEventListener("change", loadTextVoices);
 elements.voiceSelect.addEventListener("change", updateInterface);
 elements.chooseScript.addEventListener("click", () => choose("script"));
-elements.chooseSrt.addEventListener("click", () => choose("subtitle"));
 elements.chooseVideo.addEventListener("click", () => choose("video"));
 elements.chooseOutput.addEventListener("click", () => choose("folder"));
 elements.clearVideo.addEventListener("click", clearVideo);
 elements.generate.addEventListener("click", generate);
 elements.scriptPath.addEventListener("change", inspectScript);
-elements.srtPath.addEventListener("change", inspectSrt);
 elements.videoPath.addEventListener("change", inspectVideo);
 elements.outputPath.addEventListener("input", updateInterface);
 elements.openOutput.addEventListener("click", openOutputFolder);

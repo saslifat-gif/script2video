@@ -25,7 +25,7 @@
             <span class="privacy-dot" aria-hidden="true"></span>
             Local workspace
           </span>
-          <span class="version" id="version">v1.0.5</span>
+          <span class="version" id="version">v1.0.6</span>
         </div>
       </header>
 
@@ -66,7 +66,7 @@
                 <span class="step-number">01</span>
                 <div>
                   <h2 id="source-title">Source</h2>
-                  <p>Paste text, import SRT subtitles, or use reusable YAML.</p>
+                  <p>Paste a complete script or use reusable YAML.</p>
                 </div>
                 <span class="step-state" id="script-state">Required</span>
               </div>
@@ -80,15 +80,6 @@
                   aria-selected="true"
                 >
                   Paste text
-                </button>
-                <button
-                  class="source-tab"
-                  id="srt-mode"
-                  type="button"
-                  role="tab"
-                  aria-selected="false"
-                >
-                  SRT file
                 </button>
                 <button
                   class="source-tab"
@@ -109,38 +100,14 @@
                   id="narration-text"
                   rows="8"
                   spellcheck="true"
-                  placeholder="Paste the words you want spoken here. Separate paragraphs with a blank line to create multiple scenes."
+                  placeholder="Paste your complete script here. Sentences automatically become separate voice scenes and timed subtitles."
                 ></textarea>
                 <div class="field-message-row">
                   <p class="field-message" id="text-message">
-                    Each paragraph automatically becomes a scene.
+                    Every sentence automatically becomes a scene and subtitle.
                   </p>
                   <span class="character-count" id="character-count">0 words</span>
                 </div>
-              </div>
-
-              <div
-                id="srt-source"
-                role="tabpanel"
-                aria-labelledby="srt-mode"
-                hidden
-              >
-                <label class="field-label" for="srt-path">SRT subtitle script</label>
-                <div class="path-control">
-                  <input
-                    id="srt-path"
-                    type="text"
-                    autocomplete="off"
-                    spellcheck="false"
-                    placeholder="Choose a .srt file"
-                  />
-                  <button class="browse-button" id="choose-srt" type="button">
-                    Browse
-                  </button>
-                </div>
-                <p class="field-message" id="srt-message">
-                  Each subtitle cue automatically becomes a narration scene.
-                </p>
               </div>
 
               <div
@@ -179,7 +146,7 @@
                   type="text"
                   autocomplete="off"
                   spellcheck="false"
-                  placeholder="Add a video for timed captions"
+                  placeholder="Add a video to fit the voice to its length"
                 />
                 <button class="browse-button" id="choose-video" type="button">
                   Browse
@@ -187,7 +154,7 @@
               </div>
               <div class="field-message-row">
                 <p class="field-message" id="video-message">
-                  Leave empty when you only need narration.
+                  Optional. Subtitles are generated even without a video.
                 </p>
                 <button class="text-button" id="clear-video" type="button" hidden>
                   Remove
@@ -269,7 +236,7 @@
               </div>
 
               <button class="generate-button" id="generate" type="button" disabled>
-                <span id="generate-label">Generate narration</span>
+                <span id="generate-label">Generate voice + subtitles</span>
                 <span class="button-arrow" aria-hidden="true">→</span>
               </button>
               <p class="privacy-note">
@@ -329,10 +296,11 @@
             <div class="delivery-card">
               <div class="delivery-heading">
                 <span>Delivery</span>
-                <small id="delivery-mode">Narration only</small>
+                <small id="delivery-mode">Voice + subtitles</small>
               </div>
               <ul id="delivery-files">
                 <li><span class="file-type">WAV</span> Narration track</li>
+                <li><span class="file-type">SRT</span> Timed subtitles</li>
                 <li><span class="file-type">JSON</span> Timing manifest</li>
               </ul>
             </div>

@@ -24,12 +24,14 @@ from urllib.request import Request, urlopen
 from script2video import __version__
 from script2video.alignment import MLXWhisperAligner
 from script2video.capcut import create_capcut_package
+from script2video.captions import build_srt, write_srt
 from script2video.config import ProjectConfig, SceneConfig, load_project
 from script2video.engines.fake import FakeEngine
 from script2video.engines.kokoro import KokoroEngine
 from script2video.errors import Script2VideoError
 from script2video.pipeline import render_project
 from script2video.srt import load_srt_cues, load_srt_project
+from script2video.text import split_text_scenes
 from script2video.video import probe_video
 
 _STATIC_ROOT = Path(__file__).with_name("web_static")
@@ -529,14 +531,10 @@ def _run_srt_generation_job(
 def _project_from_text(
     text: str, language: str, engine: str, voice: str
 ) -> ProjectConfig:
-    paragraphs = [
-        paragraph.strip()
-        for paragraph in re.split(r"\n\s*\n", text.strip())
-        if paragraph.strip()
-    ]
-    if not paragraphs:
+    sentences = split_text_scenes(text)
+    if not sentences:
         raise ValueError("Narration text is required")
-    first_line = " ".join(paragraphs[0].split())
+    first_line = sentences[0]
     title = first_line[:57] + "..." if len(first_line) > 60 else first_line
     return ProjectConfig(
         title=title,
@@ -544,8 +542,8 @@ def _project_from_text(
         engine=engine,
         voice=voice,
         scenes=[
-            SceneConfig(id=f"paragraph-{index:03d}", text=paragraph)
-            for index, paragraph in enumerate(paragraphs, start=1)
+            SceneConfig(id=f"sentence-{index:03d}", text=sentence)
+            for index, sentence in enumerate(sentences, start=1)
         ],
     )
 
@@ -561,7 +559,9 @@ def _render_generation(
 ) -> None:
     if video_path is None:
         job.message = "Rendering narration scene by scene"
-        render_project(project, input_path, output_path, engine)
+        manifest = render_project(project, input_path, output_path, engine)
+        job.message = "Creating subtitles from the voice timing"
+        write_srt(output_path / "captions.srt", build_srt(project, manifest))
     else:
         job.message = "Matching narration and captions to the video"
         use_alignment = bool(options.get("align", True))
@@ -582,7 +582,9 @@ def _render_generation(
 
     job.status = "complete"
     job.message = (
-        "CapCut package is ready" if video_path is not None else "Narration is ready"
+        "CapCut package is ready"
+        if video_path is not None
+        else "Narration, scenes, and subtitles are ready"
     )
     job.output = str(output_path)
     job.files = sorted(path.name for path in output_path.iterdir() if path.is_file())
