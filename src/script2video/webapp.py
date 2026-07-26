@@ -29,6 +29,7 @@ from script2video.engines.fake import FakeEngine
 from script2video.engines.kokoro import KokoroEngine
 from script2video.errors import Script2VideoError
 from script2video.pipeline import render_project
+from script2video.srt import load_srt_cues, load_srt_project
 from script2video.video import probe_video
 
 _STATIC_ROOT = Path(__file__).with_name("web_static")
@@ -126,6 +127,8 @@ class _WebRequestHandler(BaseHTTPRequestHandler):
             payload = self._read_json()
             if path == "/api/inspect-script":
                 self._inspect_script(payload)
+            elif path == "/api/inspect-srt":
+                self._inspect_srt(payload)
             elif path == "/api/inspect-video":
                 self._inspect_video(payload)
             elif path == "/api/pick":
@@ -225,10 +228,23 @@ class _WebRequestHandler(BaseHTTPRequestHandler):
             }
         )
 
+    def _inspect_srt(self, payload: dict[str, Any]) -> None:
+        path = _required_path(payload, "path")
+        cues = load_srt_cues(path)
+        self._send_json(
+            {
+                "path": str(path),
+                "title": path.stem,
+                "scene_count": len(cues),
+                "word_count": sum(len(cue.text.split()) for cue in cues),
+                "duration_ms": cues[-1].end_ms,
+            }
+        )
+
     def _pick_path(self, payload: dict[str, Any]) -> None:
         kind = str(payload["kind"])
-        if kind not in {"script", "video", "folder"}:
-            raise ValueError("Picker kind must be script, video, or folder")
+        if kind not in {"script", "subtitle", "video", "folder"}:
+            raise ValueError("Picker kind must be script, subtitle, video, or folder")
         selected = _choose_local_path(kind)
         self._send_json({"path": selected})
 
@@ -261,12 +277,16 @@ class _WebRequestHandler(BaseHTTPRequestHandler):
                 raise ValueError("Narration text is required")
             target = _run_text_generation_job
             args = (job, text, video, output, payload)
+        elif source_type == "srt":
+            script = _required_path(payload, "script")
+            target = _run_srt_generation_job
+            args = (job, script, video, output, payload)
         elif source_type == "yaml":
             script = _required_path(payload, "script")
             target = _run_generation_job
             args = (job, script, video, output, payload)
         else:
-            raise ValueError("Source type must be text or yaml")
+            raise ValueError("Source type must be text, srt, or yaml")
         thread = threading.Thread(
             target=target,
             args=args,
@@ -466,6 +486,46 @@ def _run_text_generation_job(
         _fail_job(job, exc)
 
 
+def _run_srt_generation_job(
+    job: GenerationJob,
+    script_path: Path,
+    video_path: Path | None,
+    output_path: Path,
+    options: dict[str, Any],
+) -> None:
+    try:
+        job.status = "running"
+        job.message = "Splitting subtitle cues into narration scenes"
+        engine_name = str(options.get("engine", "kokoro")).strip()
+        language = str(options.get("language", "en-US")).strip()
+        voice = str(options.get("voice", "")).strip()
+        if not voice:
+            raise ValueError("Voice is required")
+        project = load_srt_project(
+            script_path,
+            language=language,
+            engine=engine_name,
+            voice=voice,
+        )
+        output_path.mkdir(parents=True, exist_ok=True)
+        input_path = output_path / "source.srt"
+        input_path.write_text(
+            script_path.read_text(encoding="utf-8-sig"),
+            encoding="utf-8",
+        )
+        _render_generation(
+            job,
+            project,
+            input_path,
+            video_path,
+            output_path,
+            options,
+            _get_engine(engine_name),
+        )
+    except Exception as exc:
+        _fail_job(job, exc)
+
+
 def _project_from_text(
     text: str, language: str, engine: str, voice: str
 ) -> ProjectConfig:
@@ -549,6 +609,7 @@ def _choose_local_path(kind: str) -> str:
         kind_clause = "folder" if kind == "folder" else "file"
         prompt = {
             "script": "Choose a YAML script",
+            "subtitle": "Choose an SRT subtitle script",
             "video": "Choose a source video",
             "folder": "Choose an output folder",
         }[kind]
@@ -569,6 +630,8 @@ def _choose_local_path(kind: str) -> str:
             file_filter = (
                 "YAML scripts|*.yaml;*.yml|All files|*.*"
                 if kind == "script"
+                else "SRT subtitles|*.srt|All files|*.*"
+                if kind == "subtitle"
                 else "Video files|*.mp4;*.mov;*.mkv;*.webm|All files|*.*"
             )
             script = (
@@ -585,6 +648,8 @@ def _choose_local_path(kind: str) -> str:
             command.append("--directory")
         elif kind == "script":
             command.extend(["--file-filter", "YAML scripts | *.yaml *.yml"])
+        elif kind == "subtitle":
+            command.extend(["--file-filter", "SRT subtitles | *.srt"])
         else:
             command.extend(["--file-filter", "Video files | *.mp4 *.mov *.mkv *.webm"])
 

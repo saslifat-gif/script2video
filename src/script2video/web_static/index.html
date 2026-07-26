@@ -25,7 +25,7 @@
             <span class="privacy-dot" aria-hidden="true"></span>
             Local workspace
           </span>
-          <span class="version" id="version">v1.0.4</span>
+          <span class="version" id="version">v1.0.5</span>
         </div>
       </header>
 
@@ -66,7 +66,7 @@
                 <span class="step-number">01</span>
                 <div>
                   <h2 id="source-title">Source</h2>
-                  <p>Paste text or use a reusable YAML script.</p>
+                  <p>Paste text, import SRT subtitles, or use reusable YAML.</p>
                 </div>
                 <span class="step-state" id="script-state">Required</span>
               </div>
@@ -80,6 +80,15 @@
                   aria-selected="true"
                 >
                   Paste text
+                </button>
+                <button
+                  class="source-tab"
+                  id="srt-mode"
+                  type="button"
+                  role="tab"
+                  aria-selected="false"
+                >
+                  SRT file
                 </button>
                 <button
                   class="source-tab"
@@ -108,6 +117,30 @@
                   </p>
                   <span class="character-count" id="character-count">0 words</span>
                 </div>
+              </div>
+
+              <div
+                id="srt-source"
+                role="tabpanel"
+                aria-labelledby="srt-mode"
+                hidden
+              >
+                <label class="field-label" for="srt-path">SRT subtitle script</label>
+                <div class="path-control">
+                  <input
+                    id="srt-path"
+                    type="text"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="Choose a .srt file"
+                  />
+                  <button class="browse-button" id="choose-srt" type="button">
+                    Browse
+                  </button>
+                </div>
+                <p class="field-message" id="srt-message">
+                  Each subtitle cue automatically becomes a narration scene.
+                </p>
               </div>
 
               <div

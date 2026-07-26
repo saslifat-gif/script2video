@@ -1,0 +1,11 @@
+1
+00:00:00,500 --> 00:00:03,200
+Welcome to Script2Video Studio.
+
+2
+00:00:03,600 --> 00:00:07,100
+Each subtitle cue automatically becomes a narration scene.
+
+3
+00:00:07,500 --> 00:00:11,000
+Choose a language and voice, then generate the complete voice track.

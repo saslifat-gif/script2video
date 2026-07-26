@@ -13,6 +13,7 @@ from script2video.engines.fake import FakeEngine
 from script2video.engines.kokoro import KokoroEngine
 from script2video.errors import EngineUnavailableError, Script2VideoError
 from script2video.pipeline import render_project
+from script2video.srt import load_srt_project
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -81,6 +82,34 @@ def render(
         _fail(exc, code=4)
     typer.echo(
         f"Rendered {len(manifest['scenes'])} scenes to {output} "
+        f"({manifest['audio']['duration_ms']} ms)"
+    )
+
+
+@app.command("render-srt")
+def render_srt(
+    script: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
+    output: Annotated[
+        Path, typer.Option("--output", "-o", help="Build output directory.")
+    ],
+    language: Annotated[
+        str, typer.Option("--language", "-l", help="Spoken language code.")
+    ] = "en-US",
+    engine: Annotated[
+        str, typer.Option("--engine", "-e", help="Voice engine name.")
+    ] = "kokoro",
+    voice: Annotated[
+        str, typer.Option("--voice", "-v", help="Voice used for every SRT cue.")
+    ] = "af_heart",
+) -> None:
+    """Split an SRT subtitle script into scenes and render its narration."""
+    try:
+        project = load_srt_project(script, language, engine, voice)
+        manifest = render_project(project, script, output, get_engine(engine))
+    except Script2VideoError as exc:
+        _fail(exc, code=6)
+    typer.echo(
+        f"Rendered {len(manifest['scenes'])} SRT scenes to {output} "
         f"({manifest['audio']['duration_ms']} ms)"
     )
 

@@ -15,6 +15,7 @@ from script2video.webapp import (
     _open_path,
     _project_from_text,
     _run_generation_job,
+    _run_srt_generation_job,
     _run_text_generation_job,
     _update_payload,
     _version_tuple,
@@ -25,7 +26,7 @@ class WebAppTests(unittest.TestCase):
     def test_bootstrap_exposes_local_defaults(self) -> None:
         payload = _bootstrap_payload()
 
-        self.assertEqual(payload["version"], "1.0.4")
+        self.assertEqual(payload["version"], "1.0.5")
         self.assertIn(payload["platform"], {"darwin", "linux", "win32"})
         self.assertEqual(
             Path(str(payload["default_output"])).parts[-2:],
@@ -88,7 +89,7 @@ class WebAppTests(unittest.TestCase):
 
         self.assertFalse(result["checked"])
         self.assertFalse(result["available"])
-        self.assertEqual(result["current_version"], "1.0.4")
+        self.assertEqual(result["current_version"], "1.0.5")
 
     def test_semantic_versions_compare_numerically(self) -> None:
         self.assertGreater(_version_tuple("1.10.0"), _version_tuple("1.9.9"))
@@ -165,14 +166,45 @@ class WebAppTests(unittest.TestCase):
                 "Hello from plain text.\n\nThis is another scene.\n",
             )
 
+    def test_web_job_splits_srt_cues_into_scenes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            script = root / "episode.srt"
+            script.write_text(
+                "1\n00:00:00,000 --> 00:00:01,000\nFirst cue.\n\n"
+                "2\n00:00:01,500 --> 00:00:03,000\nSecond cue.\n",
+                encoding="utf-8",
+            )
+            output = root / "srt-build"
+            job = GenerationJob(id="srt-job")
+
+            _run_srt_generation_job(
+                job,
+                script,
+                None,
+                output,
+                {
+                    "engine": "fake",
+                    "language": "en-US",
+                    "voice": "test_narrator",
+                },
+            )
+
+            self.assertEqual(job.status, "complete", job.error)
+            self.assertIn("source.srt", job.files)
+            self.assertIn("narration.wav", job.files)
+            self.assertEqual(len(list((output / "scenes").glob("*.wav"))), 2)
+
     def test_browser_assets_are_packaged_with_the_application(self) -> None:
         static = Path(__file__).parents[1] / "src" / "script2video" / "web_static"
 
         self.assertIn("Script2Video Studio", (static / "index.html").read_text())
         self.assertIn("narration-text", (static / "index.html").read_text())
+        self.assertIn("srt-mode", (static / "index.html").read_text())
         self.assertIn("--accent:", (static / "app.css").read_text())
         self.assertIn("[hidden]", (static / "app.css").read_text())
         self.assertIn("/api/voices", (static / "app.js").read_text())
+        self.assertIn("/api/inspect-srt", (static / "app.js").read_text())
         self.assertIn("/api/generate", (static / "app.js").read_text())
 
 
