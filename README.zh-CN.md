@@ -32,6 +32,9 @@
 > **版本 1.0.9：** 修复纯文本生成时的字幕漂移。现在每张短字幕卡都会作为独立
 > 语音片段生成，并使用真实音频边界写入 SRT，不再按字符数量估算时间。
 
+> **版本 1.0.10：** Studio 现在会立即显示所有受支持语言的声音，并在 Windows
+> 与 macOS 应用中包含 Kokoro 所需的日语和中文发音组件。
+
 ## Studio 界面预览
 
 ![Script2Video Studio v1.0.3 工作区](docs/screenshots/studio-v1.0.3-overview.png)
@@ -41,7 +44,7 @@ YAML 模式，用于复用逐场景的高级设置。
 
 ![已识别两个场景并可开始生成的 Script2Video Studio](docs/screenshots/studio-v1.0.3-ready.png)
 
-### v1.0.9 新功能
+### v1.0.10 新功能
 
 - 在 Windows 原生桌面窗口中打开 Studio，不再默认跳转浏览器标签页。
 - 启动后自动检查 GitHub Releases，也可以点击 **Check for updates** 手动检查。
@@ -61,6 +64,8 @@ YAML 模式，用于复用逐场景的高级设置。
 - 每张字幕卡最多 10 个单词、64 个字符，并限制为两行。
 - 句子拆分时保留 `Wacatac.B!ml` 等技术名称。
 - 使用每张纯文本字幕卡实际生成的音频边界进行精确计时。
+- 直接在 Studio 中加载全部九种语言的声音目录。
+- 桌面应用新增日语和普通话中文的发音依赖。
 
 ## 选择工作流程
 

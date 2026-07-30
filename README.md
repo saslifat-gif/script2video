@@ -39,6 +39,10 @@ files.
 > subtitle card is now synthesized as a measured audio segment, so its SRT
 > boundaries follow the generated voice instead of a character-count estimate.
 
+> **Version 1.0.10:** Makes all supported language voices appear immediately
+> in Studio and packages Kokoro's required Japanese and Chinese pronunciation
+> components with both desktop applications.
+
 ## Studio preview
 
 ![Script2Video Studio v1.0.3 workspace](docs/screenshots/studio-v1.0.3-overview.png)
@@ -49,7 +53,7 @@ scene-level control.
 
 ![Script2Video Studio with a two-scene script ready to generate](docs/screenshots/studio-v1.0.3-ready.png)
 
-### New in v1.0.9
+### New in v1.0.10
 
 - Open Studio in an embedded Windows desktop window instead of a browser tab.
 - Check GitHub Releases automatically or with **Check for updates**.
@@ -69,6 +73,8 @@ scene-level control.
 - Limit subtitle cards to 10 words and 64 characters with at most two lines.
 - Preserve technical names such as `Wacatac.B!ml` during sentence splitting.
 - Time every text-only subtitle card from its exact synthesized audio segment.
+- Load the full voice catalog for all nine languages directly with Studio.
+- Include Japanese and Mandarin Chinese pronunciation support in desktop builds.
 
 ## Choose a workflow
 

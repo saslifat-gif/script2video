@@ -29,7 +29,7 @@ class WebAppTests(unittest.TestCase):
     def test_bootstrap_exposes_local_defaults(self) -> None:
         payload = _bootstrap_payload()
 
-        self.assertEqual(payload["version"], "1.0.9")
+        self.assertEqual(payload["version"], "1.0.10")
         self.assertIn(payload["platform"], {"darwin", "linux", "win32"})
         self.assertEqual(
             Path(str(payload["default_output"])).parts[-2:],
@@ -37,6 +37,22 @@ class WebAppTests(unittest.TestCase):
         )
         self.assertEqual(payload["default_language"], "en-US")
         self.assertIn("zh-CN", payload["languages"])
+        voices_by_language = payload["voices_by_language"]
+        self.assertEqual(set(voices_by_language), set(payload["languages"]))
+        self.assertTrue(
+            all(
+                voices_by_language[language]
+                for language in payload["languages"]
+            )
+        )
+        self.assertIn(
+            "zf_xiaoxiao",
+            {voice["id"] for voice in voices_by_language["zh-CN"]},
+        )
+        self.assertIn(
+            "jf_alpha",
+            {voice["id"] for voice in voices_by_language["ja-JP"]},
+        )
         self.assertEqual(
             payload["releases_url"],
             "https://github.com/saslifat-gif/script2video/releases",
@@ -123,7 +139,7 @@ class WebAppTests(unittest.TestCase):
 
         self.assertFalse(result["checked"])
         self.assertFalse(result["available"])
-        self.assertEqual(result["current_version"], "1.0.9")
+        self.assertEqual(result["current_version"], "1.0.10")
 
     def test_generation_gets_a_unique_named_output_folder(self) -> None:
         root = Path("/tmp/studio")
@@ -316,6 +332,7 @@ class WebAppTests(unittest.TestCase):
         self.assertIn("/api/preview-voice", javascript)
         self.assertIn("splitTextScenes", javascript)
         self.assertIn("splitCaptionText", javascript)
+        self.assertIn("voices_by_language", javascript)
         self.assertNotIn("Intl.Segmenter", javascript)
         self.assertIn("/api/generate", javascript)
         html_ids = set(re.findall(r'id="([^"]+)"', html))

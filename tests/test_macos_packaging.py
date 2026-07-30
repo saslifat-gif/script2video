@@ -19,6 +19,8 @@ class MacOSPackagingTests(unittest.TestCase):
 
         self.assertIn('target_arch="arm64"', spec)
         self.assertIn('"language_tags"', spec)
+        self.assertIn('"pyopenjtalk"', spec)
+        self.assertIn('"pypinyin"', spec)
         self.assertIn("Script2Video Studio.app", spec)
         self.assertIn("macOS-arm64.dmg", build_script)
         self.assertIn("language_tags/data/json/index.json", build_script)

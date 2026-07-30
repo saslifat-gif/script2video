@@ -132,12 +132,21 @@ async function loadTextVoices() {
   state.voiceLoadError = "";
   elements.voiceSelect.replaceChildren(new Option("Loading voices…", ""));
   updateInterface();
+  const language = elements.languageSelect.value;
+  const bundledVoices = state.bootstrap?.voices_by_language?.[language];
+  if (Array.isArray(bundledVoices) && bundledVoices.length > 0) {
+    state.textVoices = bundledVoices;
+    state.voicesLoading = false;
+    populateVoices();
+    updateInterface();
+    return;
+  }
   try {
     const result = await api("/api/voices", {
       method: "POST",
       body: JSON.stringify({
         engine: "kokoro",
-        language: elements.languageSelect.value,
+        language,
       }),
     });
     if (requestId !== state.voiceRequest) return;
@@ -576,8 +585,9 @@ function updateInterface() {
       "Voices could not be loaded. Change language to retry.";
   } else if (voiceChoicesReady) {
     elements.voiceMessage.className = "field-message success";
+    const voiceLabel = state.textVoices.length === 1 ? "voice" : "voices";
     elements.voiceMessage.textContent =
-      `${state.textVoices.length} voices available · choose any voice`;
+      `${state.textVoices.length} ${voiceLabel} available · choose any voice`;
   } else {
     elements.voiceMessage.className = "field-message";
     elements.voiceMessage.textContent = "Choose a language to load voices.";
