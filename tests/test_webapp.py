@@ -5,6 +5,7 @@ import json
 import re
 import tempfile
 import unittest
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 from urllib.error import URLError
@@ -13,6 +14,7 @@ from script2video.webapp import (
     GenerationJob,
     _bootstrap_payload,
     _default_output_path,
+    _generation_output_path,
     _open_path,
     _project_from_text,
     _run_generation_job,
@@ -27,7 +29,7 @@ class WebAppTests(unittest.TestCase):
     def test_bootstrap_exposes_local_defaults(self) -> None:
         payload = _bootstrap_payload()
 
-        self.assertEqual(payload["version"], "1.0.6")
+        self.assertEqual(payload["version"], "1.0.7")
         self.assertIn(payload["platform"], {"darwin", "linux", "win32"})
         self.assertEqual(
             Path(str(payload["default_output"])).parts[-2:],
@@ -73,13 +75,44 @@ class WebAppTests(unittest.TestCase):
         response = MagicMock()
         response.__enter__.return_value = io.BytesIO(json.dumps(release).encode())
 
-        with patch("script2video.webapp.urlopen", return_value=response):
+        with (
+            patch("script2video.webapp.urlopen", return_value=response),
+            patch("script2video.webapp.sys.platform", "win32"),
+        ):
             result = _update_payload()
 
         self.assertTrue(result["checked"])
         self.assertTrue(result["available"])
         self.assertEqual(result["latest_version"], "1.1.0")
         self.assertIn("Windows-x64.exe", str(result["download_url"]))
+        self.assertTrue(result["platform_asset"])
+
+    def test_update_check_finds_new_macos_release(self) -> None:
+        release = {
+            "tag_name": "v1.1.0",
+            "html_url": "https://github.com/saslifat-gif/script2video/releases/tag/v1.1.0",
+            "assets": [
+                {
+                    "name": "Script2Video-Studio-1.1.0-macOS-arm64.dmg",
+                    "browser_download_url": (
+                        "https://github.com/saslifat-gif/script2video/releases/"
+                        "download/v1.1.0/Script2Video-Studio-1.1.0-macOS-arm64.dmg"
+                    ),
+                }
+            ],
+        }
+        response = MagicMock()
+        response.__enter__.return_value = io.BytesIO(json.dumps(release).encode())
+
+        with (
+            patch("script2video.webapp.urlopen", return_value=response),
+            patch("script2video.webapp.sys.platform", "darwin"),
+            patch("script2video.webapp.machine", return_value="arm64"),
+        ):
+            result = _update_payload()
+
+        self.assertIn("macOS-arm64.dmg", str(result["download_url"]))
+        self.assertTrue(result["platform_asset"])
 
     def test_update_check_is_non_blocking_when_offline(self) -> None:
         with patch(
@@ -90,7 +123,22 @@ class WebAppTests(unittest.TestCase):
 
         self.assertFalse(result["checked"])
         self.assertFalse(result["available"])
-        self.assertEqual(result["current_version"], "1.0.6")
+        self.assertEqual(result["current_version"], "1.0.7")
+
+    def test_generation_gets_a_unique_named_output_folder(self) -> None:
+        root = Path("/tmp/studio")
+        created = datetime(2026, 7, 30, 9, 8, 7, tzinfo=UTC)
+        output = _generation_output_path(
+            root,
+            {"source_type": "text", "text": "My first scene. More words."},
+            "abcdef123456",
+            created,
+        )
+
+        self.assertEqual(
+            output,
+            root / "20260730-090807-my-first-scene-more-words-abcdef",
+        )
 
     def test_semantic_versions_compare_numerically(self) -> None:
         self.assertGreater(_version_tuple("1.10.0"), _version_tuple("1.9.9"))
@@ -228,6 +276,7 @@ class WebAppTests(unittest.TestCase):
         self.assertIn("--accent:", stylesheet)
         self.assertIn("[hidden]", stylesheet)
         self.assertIn("/api/voices", javascript)
+        self.assertIn("/api/preview-voice", javascript)
         self.assertIn("splitTextScenes", javascript)
         self.assertIn("/api/generate", javascript)
         html_ids = set(re.findall(r'id="([^"]+)"', html))

@@ -115,6 +115,21 @@ button {
   align-items: center;
 }
 
+.topbar-update-button {
+  padding: 8px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: white;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.topbar-update-button:hover {
+  background: var(--accent-soft);
+}
+
 .privacy-pill {
   display: inline-flex;
   gap: 8px;
@@ -532,6 +547,34 @@ h1 {
   margin-bottom: 18px;
 }
 
+.voice-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.voice-control button {
+  min-width: 108px;
+  border: 1px solid var(--line-strong);
+  border-radius: 11px;
+  background: white;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.voice-control button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+#voice-preview-player {
+  width: 100%;
+  height: 38px;
+  margin-top: 10px;
+}
+
 .settings-list {
   display: grid;
   margin-top: 22px;
@@ -748,8 +791,16 @@ h1 {
   place-items: center;
   width: 38px;
   height: 38px;
+  padding: 0;
+  border: 0;
   border-radius: 50%;
   background: var(--accent);
+  cursor: pointer;
+}
+
+.play-orb:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .play-orb span {
@@ -1134,8 +1185,12 @@ footer {
   }
 
   .footer-actions > span,
-  #check-updates {
+  .privacy-pill {
     display: none;
+  }
+
+  .topbar-actions {
+    gap: 8px;
   }
 }
 

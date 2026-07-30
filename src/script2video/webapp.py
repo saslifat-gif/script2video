@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import mimetypes
 import os
@@ -23,9 +24,11 @@ from urllib.request import Request, urlopen
 
 from script2video import __version__
 from script2video.alignment import MLXWhisperAligner
+from script2video.audio import wav_bytes
 from script2video.capcut import create_capcut_package
 from script2video.captions import build_srt, write_srt
 from script2video.config import ProjectConfig, SceneConfig, load_project
+from script2video.engines.base import SynthesisRequest
 from script2video.engines.fake import FakeEngine
 from script2video.engines.kokoro import KokoroEngine
 from script2video.errors import Script2VideoError
@@ -41,6 +44,17 @@ _RELEASES_URL = "https://github.com/saslifat-gif/script2video/releases"
 _LATEST_RELEASE_API = (
     "https://api.github.com/repos/saslifat-gif/script2video/releases/latest"
 )
+_VOICE_PREVIEW_TEXT = {
+    "en-GB": "Hello, this is a preview of the selected voice.",
+    "en-US": "Hello, this is a preview of the selected voice.",
+    "es-ES": "Hola, esta es una muestra de la voz seleccionada.",
+    "fr-FR": "Bonjour, voici un aperçu de la voix sélectionnée.",
+    "hi-IN": "नमस्ते, यह चुनी गई आवाज़ का एक नमूना है।",
+    "it-IT": "Ciao, questa è un'anteprima della voce selezionata.",
+    "ja-JP": "こんにちは。選択した音声のプレビューです。",
+    "pt-BR": "Olá, esta é uma prévia da voz selecionada.",
+    "zh-CN": "你好，这是所选声音的试听。",
+}
 
 
 @dataclass
@@ -137,6 +151,8 @@ class _WebRequestHandler(BaseHTTPRequestHandler):
                 self._pick_path(payload)
             elif path == "/api/voices":
                 self._list_voices(payload)
+            elif path == "/api/preview-voice":
+                self._preview_voice(payload)
             elif path == "/api/generate":
                 self._start_generation(payload)
             elif path == "/api/open-output":
@@ -267,11 +283,49 @@ class _WebRequestHandler(BaseHTTPRequestHandler):
             {"engine": engine_name, "language": language, "voices": voices}
         )
 
+    def _preview_voice(self, payload: dict[str, Any]) -> None:
+        engine_name = str(payload.get("engine", "kokoro")).strip()
+        language = str(payload.get("language", "en-US")).strip()
+        voice = str(payload.get("voice", "")).strip()
+        if not voice:
+            raise ValueError("Choose a voice before previewing it")
+        engine = _get_engine(engine_name)
+        supported = {
+            item.id for item in engine.list_voices() if language in item.languages
+        }
+        if voice not in supported:
+            raise ValueError(f"Voice '{voice}' does not support {language}")
+        supplied_text = " ".join(str(payload.get("text", "")).split())
+        preview_text = supplied_text[:240] or _VOICE_PREVIEW_TEXT.get(
+            language, _VOICE_PREVIEW_TEXT["en-US"]
+        )
+        chunk = engine.synthesize(
+            SynthesisRequest(
+                text=preview_text,
+                language=language,
+                voice=voice,
+            )
+        )
+        encoded = base64.b64encode(wav_bytes(chunk)).decode("ascii")
+        self._send_json(
+            {
+                "audio_url": f"data:audio/wav;base64,{encoded}",
+                "duration_ms": round(
+                    chunk.sample_count * 1000 / chunk.format.sample_rate
+                ),
+                "text": preview_text,
+                "voice": voice,
+            }
+        )
+
     def _start_generation(self, payload: dict[str, Any]) -> None:
-        output = _required_path(payload, "output", must_exist=False)
+        output_root = _required_path(payload, "output", must_exist=False)
+        if output_root.exists() and not output_root.is_dir():
+            raise ValueError(f"Output folder is not a directory: {output_root}")
         video_value = str(payload.get("video", "")).strip()
         video = Path(video_value).expanduser().resolve() if video_value else None
         job = self.web_state.create_job()
+        output = _generation_output_path(output_root, payload, job.id)
         source_type = str(payload.get("source_type", "yaml")).strip()
         if source_type == "text":
             text = str(payload.get("text", "")).strip()
@@ -390,9 +444,10 @@ def _update_payload() -> dict[str, Any]:
         latest_version = str(release["tag_name"]).lstrip("v")
         release_url = str(release.get("html_url") or _RELEASES_URL)
         download_url = release_url
+        asset_suffix = _platform_asset_suffix()
         for asset in release.get("assets", []):
             name = str(asset.get("name", ""))
-            if name.endswith("-Windows-x64.exe"):
+            if asset_suffix and name.endswith(asset_suffix):
                 download_url = str(asset.get("browser_download_url") or release_url)
                 break
         return {
@@ -403,6 +458,7 @@ def _update_payload() -> dict[str, Any]:
             "latest_version": latest_version,
             "release_url": release_url,
             "download_url": download_url,
+            "platform_asset": bool(asset_suffix and download_url != release_url),
         }
     except (HTTPError, KeyError, TypeError, URLError, ValueError) as exc:
         return {
@@ -412,8 +468,17 @@ def _update_payload() -> dict[str, Any]:
             "latest_version": None,
             "release_url": _RELEASES_URL,
             "download_url": _RELEASES_URL,
+            "platform_asset": False,
             "error": str(exc),
         }
+
+
+def _platform_asset_suffix() -> str:
+    if sys.platform == "win32":
+        return "-Windows-x64.exe"
+    if sys.platform == "darwin" and machine() == "arm64":
+        return "-macOS-arm64.dmg"
+    return ""
 
 
 def _version_tuple(value: str) -> tuple[int, int, int]:
@@ -614,6 +679,24 @@ def _required_path(payload: dict[str, Any], key: str, must_exist: bool = True) -
     if must_exist and not path.exists():
         raise ValueError(f"{key.replace('_', ' ').title()} does not exist: {path}")
     return path
+
+
+def _generation_output_path(
+    output_root: Path,
+    payload: dict[str, Any],
+    job_id: str,
+    created_at: datetime | None = None,
+) -> Path:
+    source_type = str(payload.get("source_type", "text")).strip()
+    if source_type == "text":
+        label = str(payload.get("text", ""))
+    else:
+        script_value = str(payload.get("script", "")).strip()
+        label = Path(script_value).stem if script_value else source_type
+    slug = "-".join(re.findall(r"[A-Za-z0-9]+", label.lower())[:6])
+    slug = slug[:42].strip("-") or "narration"
+    timestamp = (created_at or datetime.now().astimezone()).strftime("%Y%m%d-%H%M%S")
+    return output_root / f"{timestamp}-{slug}-{job_id[:6]}"
 
 
 def _choose_local_path(kind: str) -> str:

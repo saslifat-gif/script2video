@@ -27,6 +27,10 @@ files.
 > and choose Sentence, Paragraph, Line break, or Whole script scene splitting.
 > Studio generates the continuous voice track and an SRT timed to the speech.
 
+> **Version 1.0.7:** Keeps every generation in a separate dated folder, puts
+> update status beside the app version, adds playable voice auditions, and
+> introduces a native Apple Silicon macOS download.
+
 ## Studio preview
 
 ![Script2Video Studio v1.0.3 workspace](docs/screenshots/studio-v1.0.3-overview.png)
@@ -37,7 +41,7 @@ scene-level control.
 
 ![Script2Video Studio with a two-scene script ready to generate](docs/screenshots/studio-v1.0.3-ready.png)
 
-### New in v1.0.6
+### New in v1.0.7
 
 - Open Studio in an embedded Windows desktop window instead of a browser tab.
 - Check GitHub Releases automatically or with **Check for updates**.
@@ -49,6 +53,10 @@ scene-level control.
 - Show the completion panel only after files have actually been generated.
 - Open generated output folders reliably on Windows, macOS, and Linux.
 - Save packaged-app output to `Documents/Script2Video Studio` by default.
+- Keep each generation in its own named folder so files never mix together.
+- Hear the selected Kokoro voice with the current script before generating.
+- Show update checking and update availability together in the top bar.
+- Download either the Windows x64 installer or macOS Apple Silicon DMG.
 
 ## Choose a workflow
 
@@ -63,8 +71,10 @@ Git is not required. Download the
 [latest project ZIP](https://github.com/saslifat-gif/script2video/archive/refs/heads/main.zip),
 extract it, and open a terminal in the extracted `script2video-main` folder.
 
-`script2video` currently runs as a local Python application. It requires Python
-3.11. FFmpeg is needed only when you select a video.
+For the desktop application, download the Windows x64 installer or Apple
+Silicon macOS DMG from [GitHub Releases](https://github.com/saslifat-gif/script2video/releases).
+Python 3.11 is needed only when running from source. FFmpeg is needed only when
+you select a video.
 
 The first real-speech installation includes PyTorch, Transformers, tokenizers,
 spaCy, and Kokoro's language tools. This is expected and may take several
@@ -356,8 +366,8 @@ script2video/
 │   ├── srt.py              # SRT import, cleanup, and cue-to-scene conversion
 │   ├── capcut.py           # Video fitting and CapCut package workflow
 │   └── cli.py              # validate, voices, render, capcut, companion
-├── packaging/windows/      # PyInstaller and Inno Setup configuration
-├── scripts/                # Windows release build automation
+├── packaging/              # Windows and macOS application configuration
+├── scripts/                # Windows and macOS release build automation
 ├── examples/               # Paste-text and YAML examples
 ├── docs/                   # Design, packaging, and UI screenshots
 └── tests/                  # Unit and regression tests

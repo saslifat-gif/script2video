@@ -1,13 +1,15 @@
-name: Build Windows application
+name: Build desktop applications
 
 on:
   workflow_dispatch:
   pull_request:
     paths:
       - ".github/workflows/build-windows.yml"
-      - "packaging/windows/**"
+      - "packaging/**"
       - "scripts/build-windows.ps1"
+      - "scripts/build-macos.sh"
       - "src/**"
+      - "tests/**"
       - "pyproject.toml"
   push:
     tags:
@@ -17,47 +19,39 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  build-windows:
     runs-on: windows-2022
     timeout-minutes: 60
-
     steps:
       - name: Check out source
         uses: actions/checkout@v6
-
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           architecture: "x64"
           cache: "pip"
-
       - name: Install application and packager
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
           python -m pip install ".[kokoro,packaging]"
           python -m spacy download en_core_web_sm
-
       - name: Install Inno Setup
         shell: pwsh
         run: choco install innosetup --yes --no-progress
-
       - name: Run tests
         shell: pwsh
         run: python -m unittest discover -s tests -v
-
       - name: Build installer
         shell: pwsh
         run: .\scripts\build-windows.ps1
-
       - name: Read application version
         id: app
         shell: pwsh
         run: |
           $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-
       - name: Upload Windows installer
         uses: actions/upload-artifact@v7
         with:
@@ -65,16 +59,60 @@ jobs:
           path: release/Script2Video-Studio-${{ steps.app.outputs.version }}-Windows-x64.exe
           if-no-files-found: error
 
+  build-macos:
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: Install application and packager
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ".[kokoro,alignment,packaging]"
+          python -m spacy download en_core_web_sm
+      - name: Run tests
+        run: python -m unittest discover -s tests -v
+      - name: Build DMG
+        run: ./scripts/build-macos.sh
+      - name: Read application version
+        id: app
+        run: |
+          version=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Upload macOS disk image
+        uses: actions/upload-artifact@v7
+        with:
+          name: Script2Video-Studio-${{ steps.app.outputs.version }}-macOS-arm64
+          path: release/Script2Video-Studio-${{ steps.app.outputs.version }}-macOS-arm64.dmg
+          if-no-files-found: error
+
+  publish-release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+      - name: Download installers
+        uses: actions/download-artifact@v8
+        with:
+          pattern: Script2Video-Studio-*
+          path: release
+          merge-multiple: true
       - name: Publish GitHub release
-        if: startsWith(github.ref, 'refs/tags/')
-        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          APP_VERSION: ${{ steps.app.outputs.version }}
         run: |
-          gh release create "$env:GITHUB_REF_NAME" `
-            "release/Script2Video-Studio-$env:APP_VERSION-Windows-x64.exe#Windows x64 installer" `
-            --repo "$env:GITHUB_REPOSITORY" `
-            --title "Script2Video Studio $env:GITHUB_REF_NAME" `
-            --notes "Corrects the plain-text workflow: paste one complete script, choose Sentence, Paragraph, Line break, or Whole script scene splitting, render a continuous narration track, and create captions.srt from the exact generated-audio timing. The original text is kept under metadata instead of being presented as the subtitle deliverable. The Kokoro voice model downloads on first use. This installer is currently unsigned, so Windows SmartScreen may show a warning." `
+          APP_VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          gh release create "$GITHUB_REF_NAME" \
+            "release/Script2Video-Studio-$APP_VERSION-Windows-x64.exe#Windows x64 installer" \
+            "release/Script2Video-Studio-$APP_VERSION-macOS-arm64.dmg#macOS Apple Silicon disk image" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Script2Video Studio $GITHUB_REF_NAME" \
+            --notes "Keeps every generation in a separate dated folder, moves update status beside the app version, adds playable voice auditions, and introduces the native macOS Apple Silicon application. Both installers are currently unsigned, so the operating system may show a first-launch warning." \
             --verify-tag
