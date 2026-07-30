@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 class MacOSPackagingTests(unittest.TestCase):
-    def test_arm64_app_and_dmg_are_configured(self) -> None:
+    def test_local_arm64_build_remains_available_but_is_not_published(self) -> None:
         root = Path(__file__).parents[1]
         spec = (root / "packaging/macos/script2video.spec").read_text(
             encoding="utf-8"
@@ -24,8 +24,8 @@ class MacOSPackagingTests(unittest.TestCase):
         self.assertIn("Script2Video Studio.app", spec)
         self.assertIn("macOS-arm64.dmg", build_script)
         self.assertIn("language_tags/data/json/index.json", build_script)
-        self.assertIn("runs-on: macos-15", workflow)
-        self.assertIn("scripts/build-macos.sh", workflow)
+        self.assertNotIn("build-macos:", workflow)
+        self.assertNotIn("macOS-arm64.dmg#", workflow)
 
 
 if __name__ == "__main__":

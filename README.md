@@ -10,9 +10,9 @@ render narration scene by scene, fit the result to an existing video, and
 produce standard WAV, SRT, and JSON files without modifying CapCut project
 files.
 
-> **Status:** Ready for local use on macOS and Windows. Narration generation
-> does not require a video. Add a video only when you want a timed CapCut
-> package with captions.
+> **Status:** A public Windows desktop installer is available. macOS remains
+> supported when running from source. Narration generation does not require a
+> video; add one only for a timed CapCut package with captions.
 
 > **Version 1.0.3:** The Windows application now opens Studio inside its own
 > desktop window, checks for updates, and fixes voice selection and output-folder
@@ -43,6 +43,10 @@ files.
 > in Studio and packages Kokoro's required Japanese and Chinese pronunciation
 > components with both desktop applications.
 
+> **Version 1.0.11:** Moves public desktop distribution to Windows only. The
+> unsigned Mac DMG is no longer attached to releases; Mac development and local
+> source use remain supported.
+
 ## Studio preview
 
 ![Script2Video Studio v1.0.3 workspace](docs/screenshots/studio-v1.0.3-overview.png)
@@ -53,7 +57,7 @@ scene-level control.
 
 ![Script2Video Studio with a two-scene script ready to generate](docs/screenshots/studio-v1.0.3-ready.png)
 
-### New in v1.0.10
+### New in v1.0.11
 
 - Open Studio in an embedded Windows desktop window instead of a browser tab.
 - Check GitHub Releases automatically or with **Check for updates**.
@@ -68,13 +72,14 @@ scene-level control.
 - Keep each generation in its own named folder so files never mix together.
 - Hear the selected Kokoro voice with the current script before generating.
 - Show update checking and update availability together in the top bar.
-- Download either the Windows x64 installer or macOS Apple Silicon DMG.
+- Download a tested Windows x64 desktop installer from every public release.
 - Show voice-scene and subtitle-card counts separately before generation.
 - Limit subtitle cards to 10 words and 64 characters with at most two lines.
 - Preserve technical names such as `Wacatac.B!ml` during sentence splitting.
 - Time every text-only subtitle card from its exact synthesized audio segment.
 - Load the full voice catalog for all nine languages directly with Studio.
-- Include Japanese and Mandarin Chinese pronunciation support in desktop builds.
+- Include Japanese and Mandarin Chinese pronunciation support in Windows builds.
+- Keep macOS source and local-build support without publishing unsigned DMGs.
 
 ## Choose a workflow
 
@@ -89,8 +94,10 @@ Git is not required. Download the
 [latest project ZIP](https://github.com/saslifat-gif/script2video/archive/refs/heads/main.zip),
 extract it, and open a terminal in the extracted `script2video-main` folder.
 
-For the desktop application, download the Windows x64 installer or Apple
-Silicon macOS DMG from [GitHub Releases](https://github.com/saslifat-gif/script2video/releases).
+For the desktop application, download the Windows x64 installer from
+[GitHub Releases](https://github.com/saslifat-gif/script2video/releases).
+Public macOS DMGs are not provided because the project does not yet have Apple
+signing and notarization. Mac users can follow the source installation below.
 Python 3.11 is needed only when running from source. FFmpeg is needed only when
 you select a video.
 
@@ -99,7 +106,7 @@ spaCy, and Kokoro's language tools. This is expected and may take several
 minutes. The first render downloads the selected voice model; later runs reuse
 the local cache.
 
-### macOS
+### macOS (source installation)
 
 Install Python and the application:
 

@@ -3,7 +3,7 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $ProjectRoot
 
-$Version = "1.0.10"
+$Version = "1.0.11"
 $IconScript = Join-Path $ProjectRoot "packaging\windows\generate_icon.py"
 $SpecFile = Join-Path $ProjectRoot "packaging\windows\script2video.spec"
 $InstallerFile = Join-Path $ProjectRoot "packaging\windows\installer.iss"

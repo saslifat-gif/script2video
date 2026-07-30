@@ -9,8 +9,8 @@
 旁白时长适配现有视频，并生成标准 WAV、SRT 和 JSON 文件，无需修改 CapCut
 项目文件。
 
-> **状态：** 已可在 macOS 和 Windows 上本地使用。生成旁白不需要视频；只有在
-> 需要带字幕和计时信息的 CapCut 素材包时才需要选择视频。
+> **状态：** 公开提供 Windows 桌面安装程序；macOS 可继续从源码运行。生成旁白
+> 不需要视频；只有在需要带字幕和计时信息的 CapCut 素材包时才需要选择视频。
 
 > **版本 1.0.3：** Windows 应用现在会在独立桌面窗口中打开 Studio，并可检查更新；
 > 同时修复粘贴文本模式无法选择声音和打开输出文件夹失败的问题。空行分隔的段落会
@@ -35,6 +35,9 @@
 > **版本 1.0.10：** Studio 现在会立即显示所有受支持语言的声音，并在 Windows
 > 与 macOS 应用中包含 Kokoro 所需的日语和中文发音组件。
 
+> **版本 1.0.11：** 公开桌面发行改为仅提供 Windows。Release 不再附带未经签名
+> 的 Mac DMG；macOS 源码运行和本地开发构建仍然保留。
+
 ## Studio 界面预览
 
 ![Script2Video Studio v1.0.3 工作区](docs/screenshots/studio-v1.0.3-overview.png)
@@ -44,7 +47,7 @@ YAML 模式，用于复用逐场景的高级设置。
 
 ![已识别两个场景并可开始生成的 Script2Video Studio](docs/screenshots/studio-v1.0.3-ready.png)
 
-### v1.0.10 新功能
+### v1.0.11 新功能
 
 - 在 Windows 原生桌面窗口中打开 Studio，不再默认跳转浏览器标签页。
 - 启动后自动检查 GitHub Releases，也可以点击 **Check for updates** 手动检查。
@@ -59,13 +62,14 @@ YAML 模式，用于复用逐场景的高级设置。
 - 每次生成创建独立文件夹，避免不同任务的文件混在一起。
 - 生成前可用当前脚本文本试听所选 Kokoro 声音。
 - 在顶部版本号旁统一显示更新检查和更新状态。
-- 同时提供 Windows x64 安装程序与 macOS Apple Silicon DMG。
+- 每个公开 Release 提供经过测试的 Windows x64 桌面安装程序。
 - 生成前分别显示旁白场景数与字幕卡数量。
 - 每张字幕卡最多 10 个单词、64 个字符，并限制为两行。
 - 句子拆分时保留 `Wacatac.B!ml` 等技术名称。
 - 使用每张纯文本字幕卡实际生成的音频边界进行精确计时。
 - 直接在 Studio 中加载全部九种语言的声音目录。
-- 桌面应用新增日语和普通话中文的发音依赖。
+- Windows 应用新增日语和普通话中文的发音依赖。
+- 保留 macOS 源码与本地构建支持，但不再公开未经签名的 DMG。
 
 ## 选择工作流程
 
@@ -81,8 +85,9 @@ YAML 模式，用于复用逐场景的高级设置。
 解压后，在 `script2video-main` 文件夹中打开终端。
 
 桌面应用可从 [GitHub Releases](https://github.com/saslifat-gif/script2video/releases)
-下载 Windows x64 安装程序或 Apple Silicon macOS DMG。只有从源码运行时才需要
-Python 3.11；仅在选择视频时需要 FFmpeg。
+下载 Windows x64 安装程序。由于项目目前没有 Apple 签名和公证，公开 Release
+不再提供 macOS DMG；Mac 用户可按照下面的源码安装步骤使用。只有从源码运行时
+才需要 Python 3.11；仅在选择视频时需要 FFmpeg。
 
 `script2video` 目前作为本地 Python 应用运行，需要 Python 3.11。只有选择视频时
 才需要 FFmpeg。
@@ -91,7 +96,7 @@ Python 3.11；仅在选择视频时需要 FFmpeg。
 Kokoro 的语言工具。这是正常现象，可能需要几分钟。首次渲染会下载所选声音模型，
 后续运行会复用本地缓存。
 
-### macOS
+### macOS（源码安装）
 
 安装 Python 和应用：
 
