@@ -752,7 +752,9 @@ async function checkForUpdates(manual) {
         `Script2Video Studio v${result.latest_version} is available`;
       elements.updateCopy.textContent = result.platform_asset
         ? `You are using v${result.current_version}. Download the installer for this computer.`
-        : `You are using v${result.current_version}. View the available downloads.`;
+        : state.bootstrap.platform === "darwin"
+          ? `You are using v${result.current_version}. Mac is supported from source; public installers are Windows-only.`
+          : `You are using v${result.current_version}. View the available downloads.`;
       elements.updateBanner.hidden = false;
       elements.checkUpdates.textContent = "Update available";
     } else if (manual && result.checked) {

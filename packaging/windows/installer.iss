@@ -1,5 +1,5 @@
 #ifndef MyAppVersion
-  #define MyAppVersion "1.0.10"
+  #define MyAppVersion "1.0.11"
 #endif
 
 #define MyAppName "Script2Video Studio"

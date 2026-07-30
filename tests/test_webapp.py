@@ -29,7 +29,7 @@ class WebAppTests(unittest.TestCase):
     def test_bootstrap_exposes_local_defaults(self) -> None:
         payload = _bootstrap_payload()
 
-        self.assertEqual(payload["version"], "1.0.10")
+        self.assertEqual(payload["version"], "1.0.11")
         self.assertIn(payload["platform"], {"darwin", "linux", "win32"})
         self.assertEqual(
             Path(str(payload["default_output"])).parts[-2:],
@@ -103,7 +103,7 @@ class WebAppTests(unittest.TestCase):
         self.assertIn("Windows-x64.exe", str(result["download_url"]))
         self.assertTrue(result["platform_asset"])
 
-    def test_update_check_finds_new_macos_release(self) -> None:
+    def test_update_check_does_not_offer_public_macos_installer(self) -> None:
         release = {
             "tag_name": "v1.1.0",
             "html_url": "https://github.com/saslifat-gif/script2video/releases/tag/v1.1.0",
@@ -127,8 +127,8 @@ class WebAppTests(unittest.TestCase):
         ):
             result = _update_payload()
 
-        self.assertIn("macOS-arm64.dmg", str(result["download_url"]))
-        self.assertTrue(result["platform_asset"])
+        self.assertEqual(result["download_url"], release["html_url"])
+        self.assertFalse(result["platform_asset"])
 
     def test_update_check_is_non_blocking_when_offline(self) -> None:
         with patch(
@@ -139,7 +139,7 @@ class WebAppTests(unittest.TestCase):
 
         self.assertFalse(result["checked"])
         self.assertFalse(result["available"])
-        self.assertEqual(result["current_version"], "1.0.10")
+        self.assertEqual(result["current_version"], "1.0.11")
 
     def test_generation_gets_a_unique_named_output_folder(self) -> None:
         root = Path("/tmp/studio")

@@ -479,8 +479,6 @@ def _update_payload() -> dict[str, Any]:
 def _platform_asset_suffix() -> str:
     if sys.platform == "win32":
         return "-Windows-x64.exe"
-    if sys.platform == "darwin" and machine() == "arm64":
-        return "-macOS-arm64.dmg"
     return ""
 
 

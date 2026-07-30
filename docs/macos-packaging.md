@@ -1,10 +1,11 @@
 # macOS packaging
 
-Script2Video Studio v1.0.10 is packaged as an Apple Silicon application and
-distributed in a DMG. It requires macOS 14 or later.
+Script2Video Studio v1.0.11 can be packaged locally as an Apple Silicon
+application for development and personal use. It requires macOS 14 or later.
 
-The release workflow runs the tests, verifies Kokoro's language registry, and
-creates `Script2Video-Studio-1.0.10-macOS-arm64.dmg`.
+Public GitHub releases are Windows-only because the project does not currently
+have an Apple Developer ID certificate or notarization account. The local build
+creates `Script2Video-Studio-1.0.11-macOS-arm64.dmg` when needed.
 
 Build locally on an Apple Silicon Mac with:
 
@@ -15,5 +16,4 @@ python3.11 -m venv .venv
 PATH="$PWD/.venv/bin:$PATH" ./scripts/build-macos.sh
 ```
 
-The application is currently unsigned. macOS may require the user to
-Control-click the app and choose **Open** the first time.
+The local application is unsigned and is not intended for public distribution.

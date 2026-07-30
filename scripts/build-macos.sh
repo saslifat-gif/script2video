@@ -4,7 +4,7 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
-VERSION="1.0.10"
+VERSION="1.0.11"
 APP_PATH="$PROJECT_ROOT/dist/Script2Video Studio.app"
 STAGING="$PROJECT_ROOT/build/macos-dmg"
 DMG="$PROJECT_ROOT/release/Script2Video-Studio-$VERSION-macOS-arm64.dmg"
