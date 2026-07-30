@@ -81,7 +81,9 @@ jobs:
         run: ./scripts/build-macos.sh
       - name: Read application version
         id: app
-        run: echo "version=$(python -c \"import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])\")" >> "$GITHUB_OUTPUT"
+        run: |
+          version=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Upload macOS disk image
         uses: actions/upload-artifact@v7
         with:
