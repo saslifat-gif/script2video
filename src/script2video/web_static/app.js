@@ -37,6 +37,7 @@ const elements = {
   generateLabel: document.querySelector("#generate-label"),
   projectTitle: document.querySelector("#project-title"),
   sceneCount: document.querySelector("#scene-count"),
+  sceneCountLabel: document.querySelector("#scene-count-label"),
   wordCount: document.querySelector("#word-count"),
   summaryLanguage: document.querySelector("#language"),
   duration: document.querySelector("#duration"),
@@ -345,9 +346,20 @@ function setSourceMode(mode) {
 function textStats() {
   const text = elements.narrationText.value.trim();
   const words = text ? text.split(/\s+/).length : 0;
-  const scenes = splitTextScenes(text, elements.sceneSplitSelect.value).length;
+  const sceneTexts = splitTextScenes(text, elements.sceneSplitSelect.value);
+  const scenes = sceneTexts.length;
+  const captions = sceneTexts.reduce(
+    (total, scene) => total + splitCaptionText(scene).length,
+    0,
+  );
   const firstLine = text.split(/\n/).find((line) => line.trim())?.trim() || "";
-  return { text, words, scenes, title: firstLine || "Paste text to begin" };
+  return {
+    text,
+    words,
+    scenes,
+    captions,
+    title: firstLine || "Paste text to begin",
+  };
 }
 
 function splitTextScenes(text, mode = "sentence") {
@@ -366,20 +378,88 @@ function splitTextScenes(text, mode = "sentence") {
       .map((paragraph) => paragraph.trim().replace(/\s+/g, " "))
       .filter(Boolean);
   }
-  const narration = clean.replace(/\s+/g, " ");
-  if (typeof Intl.Segmenter !== "function") {
-    return narration
-      .split(/(?<=[.!?。！？])\s+|\n\s*\n+/)
-      .map((sentence) => sentence.trim())
-      .filter(Boolean);
+  return splitSentenceScenes(clean.replace(/\s+/g, " "));
+}
+
+function splitSentenceScenes(text) {
+  const closingMarks = new Set([...`"'”’)]}】》」』`]);
+  const scenes = [];
+  let start = 0;
+  let index = 0;
+  while (index < text.length) {
+    const character = text[index];
+    if (![...".!?。！？"].includes(character)) {
+      index += 1;
+      continue;
+    }
+    let punctuationEnd = index + 1;
+    while (
+      punctuationEnd < text.length &&
+      [...".!?。！？"].includes(text[punctuationEnd])
+    ) {
+      punctuationEnd += 1;
+    }
+    if (character === "." && !periodEndsSentence(text, index)) {
+      index = punctuationEnd;
+      continue;
+    }
+    let end = punctuationEnd;
+    while (end < text.length && closingMarks.has(text[end])) end += 1;
+    if (
+      ![..."。！？"].includes(character) &&
+      end < text.length &&
+      !/\s/.test(text[end])
+    ) {
+      index = punctuationEnd;
+      continue;
+    }
+    const sentence = text.slice(start, end).trim();
+    if (sentence) scenes.push(sentence);
+    start = end;
+    while (start < text.length && /\s/.test(text[start])) start += 1;
+    index = start;
   }
-  const segmenter = new Intl.Segmenter(
-    elements.languageSelect.value || "en-US",
-    { granularity: "sentence" },
-  );
-  return [...segmenter.segment(narration)]
-    .map((entry) => entry.segment.trim())
-    .filter(Boolean);
+  const remainder = text.slice(start).trim();
+  if (remainder) scenes.push(remainder);
+  return scenes;
+}
+
+function periodEndsSentence(text, index) {
+  if (
+    index > 0 &&
+    index + 1 < text.length &&
+    /\d/.test(text[index - 1]) &&
+    /\d/.test(text[index + 1])
+  ) {
+    return false;
+  }
+  const match = text.slice(0, index).match(/([A-Za-z](?:[A-Za-z.]*)?)$/);
+  const token = (match?.[1] || "").toLowerCase();
+  const abbreviations = new Set([
+    "dr", "e.g", "etc", "i.e", "jr", "mr", "mrs", "ms", "prof", "sr",
+    "st", "vs",
+  ]);
+  return !abbreviations.has(token) && !(token.length === 1 && /[a-z]/.test(token));
+}
+
+function splitCaptionText(text, maxWords = 10, maxChars = 64) {
+  const words = text.trim().replace(/\s+/g, " ").split(" ").filter(Boolean);
+  const parts = [];
+  let current = [];
+  for (const word of words) {
+    const candidate = [...current, word].join(" ");
+    if (
+      current.length &&
+      (current.length >= maxWords || candidate.length > maxChars)
+    ) {
+      parts.push(current.join(" "));
+      current = [word];
+    } else {
+      current.push(word);
+    }
+  }
+  if (current.length) parts.push(current.join(" "));
+  return parts;
 }
 
 function updateTextSource() {
@@ -399,8 +479,9 @@ function updateTextSource() {
     ? "field-message success"
     : "field-message";
   elements.textMessage.textContent = stats.text
-    ? `${stats.scenes} ${stats.scenes === 1 ? "scene" : "scenes"} ready`
-    : "Every sentence automatically becomes a scene and subtitle.";
+    ? `${stats.scenes} voice ${stats.scenes === 1 ? "scene" : "scenes"} · ` +
+      `${stats.captions} subtitle ${stats.captions === 1 ? "card" : "cards"} ready`
+    : "Scenes keep the voice natural; subtitles stay short and readable.";
   elements.successPanel.hidden = true;
   updateInterface();
 }
@@ -527,7 +608,8 @@ function updateInterface() {
     elements.scriptState.className = "step-state valid";
     elements.projectTitle.textContent =
       text.title.length > 60 ? `${text.title.slice(0, 57)}...` : text.title;
-    elements.sceneCount.textContent = text.scenes;
+    elements.sceneCount.textContent = text.captions;
+    elements.sceneCountLabel.textContent = "Subtitle cards";
     elements.wordCount.textContent = text.words;
     elements.summaryLanguage.textContent = elements.languageSelect.value;
   } else if (state.sourceMode === "yaml" && state.script) {
@@ -535,6 +617,7 @@ function updateInterface() {
     elements.scriptState.className = "step-state valid";
     elements.projectTitle.textContent = state.script.title;
     elements.sceneCount.textContent = state.script.scene_count;
+    elements.sceneCountLabel.textContent = "Scenes";
     elements.wordCount.textContent = state.script.word_count;
     elements.summaryLanguage.textContent = state.script.language;
   } else {
@@ -545,6 +628,8 @@ function updateInterface() {
         ? "Paste text to begin"
         : "Choose a YAML script";
     elements.sceneCount.textContent = "—";
+    elements.sceneCountLabel.textContent =
+      state.sourceMode === "text" ? "Subtitle cards" : "Scenes";
     elements.wordCount.textContent = "—";
     elements.summaryLanguage.textContent =
       state.sourceMode !== "yaml" ? elements.languageSelect.value || "—" : "—";

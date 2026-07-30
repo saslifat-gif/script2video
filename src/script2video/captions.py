@@ -22,33 +22,17 @@ def build_srt(project: ProjectConfig, manifest: dict[str, Any]) -> str:
         exact_segments = timing.get("segments")
         if exact_segments:
             for segment in exact_segments:
-                entries.append(
-                    (
+                entries.extend(
+                    _timed_caption_entries(
+                        str(segment["text"]),
                         int(segment["start_sample"]),
                         int(segment["end_sample"]),
-                        wrap_caption_two_lines(str(segment["text"])),
                     )
                 )
             continue
-        parts = split_caption_text(scene.text)
         start_sample = int(timing["start_sample"])
         end_sample = int(timing["speech_end_sample"])
-        duration = end_sample - start_sample
-        weights = [max(1, len(re.sub(r"\s+", "", part))) for part in parts]
-        total_weight = sum(weights)
-        cursor = start_sample
-        consumed_weight = 0
-        for index, (part, weight) in enumerate(zip(parts, weights, strict=True)):
-            consumed_weight += weight
-            part_end = (
-                end_sample
-                if index == len(parts) - 1
-                else start_sample + round(duration * consumed_weight / total_weight)
-            )
-            entries.append(
-                (cursor, max(cursor + 1, part_end), wrap_caption_two_lines(part))
-            )
-            cursor = part_end
+        entries.extend(_timed_caption_entries(scene.text, start_sample, end_sample))
 
     blocks = []
     for number, (start, end, text) in enumerate(entries, start=1):
@@ -62,7 +46,7 @@ def build_srt(project: ProjectConfig, manifest: dict[str, Any]) -> str:
 
 
 def split_caption_text(
-    text: str, max_words: int = 16, max_chars: int = 84
+    text: str, max_words: int = 10, max_chars: int = 64
 ) -> list[str]:
     sentences = _SENTENCE_BOUNDARY.split(" ".join(text.split()))
     parts: list[str] = []
@@ -78,6 +62,36 @@ def split_caption_text(
     if current:
         parts.append(" ".join(current))
     return parts or [text.strip()]
+
+
+def _timed_caption_entries(
+    text: str, start_sample: int, end_sample: int
+) -> list[tuple[int, int, str]]:
+    """Split one spoken span into readable cards without losing its timing."""
+
+    parts = split_caption_text(text)
+    duration = max(1, end_sample - start_sample)
+    weights = [max(1, len(re.sub(r"\s+", "", part))) for part in parts]
+    total_weight = sum(weights)
+    cursor = start_sample
+    consumed_weight = 0
+    entries: list[tuple[int, int, str]] = []
+    for index, (part, weight) in enumerate(zip(parts, weights, strict=True)):
+        consumed_weight += weight
+        part_end = (
+            end_sample
+            if index == len(parts) - 1
+            else start_sample + round(duration * consumed_weight / total_weight)
+        )
+        entries.append(
+            (
+                cursor,
+                max(cursor + 1, part_end),
+                wrap_caption_two_lines(part, line_target=32),
+            )
+        )
+        cursor = part_end
+    return entries
 
 
 def wrap_caption_two_lines(text: str, line_target: int = 42) -> str:

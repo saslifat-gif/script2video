@@ -33,6 +33,18 @@ class TextSceneTests(unittest.TestCase):
             ["Dr. Smith measured 3.5 seconds.", "Then we continued."],
         )
 
+    def test_keeps_security_signature_punctuation_inside_sentence(self) -> None:
+        self.assertEqual(
+            split_text_scenes(
+                "Windows reports [Trojan:Win32/Wacatac.B!ml] but the file may "
+                "be safe. Can anyone help?"
+            ),
+            [
+                "Windows reports [Trojan:Win32/Wacatac.B!ml] but the file may be safe.",
+                "Can anyone help?",
+            ],
+        )
+
     def test_sentence_mode_ignores_layout_newlines(self) -> None:
         self.assertEqual(
             split_text_scenes("Opening title\n\nThe story begins"),

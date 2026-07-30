@@ -31,6 +31,10 @@ files.
 > update status beside the app version, adds playable voice auditions, and
 > introduces a native Apple Silicon macOS download.
 
+> **Version 1.0.8:** Separates natural voice scenes from readable subtitle
+> cards. Long spoken sections now become short, two-line timed captions instead
+> of one paragraph-sized SRT cue.
+
 ## Studio preview
 
 ![Script2Video Studio v1.0.3 workspace](docs/screenshots/studio-v1.0.3-overview.png)
@@ -41,7 +45,7 @@ scene-level control.
 
 ![Script2Video Studio with a two-scene script ready to generate](docs/screenshots/studio-v1.0.3-ready.png)
 
-### New in v1.0.7
+### New in v1.0.8
 
 - Open Studio in an embedded Windows desktop window instead of a browser tab.
 - Check GitHub Releases automatically or with **Check for updates**.
@@ -57,6 +61,9 @@ scene-level control.
 - Hear the selected Kokoro voice with the current script before generating.
 - Show update checking and update availability together in the top bar.
 - Download either the Windows x64 installer or macOS Apple Silicon DMG.
+- Show voice-scene and subtitle-card counts separately before generation.
+- Limit subtitle cards to 10 words and 64 characters with at most two lines.
+- Preserve technical names such as `Wacatac.B!ml` during sentence splitting.
 
 ## Choose a workflow
 
