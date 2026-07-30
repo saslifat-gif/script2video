@@ -1,10 +1,10 @@
 # macOS packaging
 
-Script2Video Studio v1.0.8 is packaged as an Apple Silicon application and
+Script2Video Studio v1.0.9 is packaged as an Apple Silicon application and
 distributed in a DMG. It requires macOS 14 or later.
 
 The release workflow runs the tests, verifies Kokoro's language registry, and
-creates `Script2Video-Studio-1.0.8-macOS-arm64.dmg`.
+creates `Script2Video-Studio-1.0.9-macOS-arm64.dmg`.
 
 Build locally on an Apple Silicon Mac with:
 
