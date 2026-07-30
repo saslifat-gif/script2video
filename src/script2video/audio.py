@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import tempfile
 import wave
+from io import BytesIO
 from pathlib import Path
 
 from script2video.engines.base import AudioChunk, AudioFormat
@@ -30,3 +31,15 @@ def write_wav(path: Path, chunk: AudioChunk) -> None:
     finally:
         if temporary_path is not None and temporary_path.exists():
             temporary_path.unlink()
+
+
+def wav_bytes(chunk: AudioChunk) -> bytes:
+    """Return an audio chunk as a complete in-memory WAV file."""
+
+    buffer = BytesIO()
+    with wave.open(buffer, "wb") as output:
+        output.setnchannels(chunk.format.channels)
+        output.setsampwidth(chunk.format.sample_width)
+        output.setframerate(chunk.format.sample_rate)
+        output.writeframes(chunk.pcm)
+    return buffer.getvalue()

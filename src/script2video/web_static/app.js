@@ -27,6 +27,9 @@ const elements = {
   languageSelect: document.querySelector("#language-select"),
   voiceSelect: document.querySelector("#voice-select"),
   voiceMessage: document.querySelector("#voice-message"),
+  previewVoice: document.querySelector("#preview-voice"),
+  previewVoiceOverview: document.querySelector("#preview-voice-overview"),
+  voicePreviewPlayer: document.querySelector("#voice-preview-player"),
   fitToggle: document.querySelector("#fit-toggle"),
   alignToggle: document.querySelector("#align-toggle"),
   alignmentDescription: document.querySelector("#alignment-description"),
@@ -60,7 +63,9 @@ const state = {
   textVoices: [],
   voicesLoading: false,
   voiceLoadError: "",
+  voicePreviewMessage: "",
   voiceRequest: 0,
+  previewingVoice: false,
   video: null,
   generating: false,
   output: "",
@@ -252,8 +257,60 @@ function populateVoices() {
   }
 }
 
+function effectiveVoice() {
+  return (
+    elements.voiceSelect.value ||
+    (state.sourceMode === "yaml" ? state.script?.voice || "" : "")
+  );
+}
+
+function resetVoicePreview() {
+  elements.voicePreviewPlayer.pause();
+  elements.voicePreviewPlayer.removeAttribute("src");
+  elements.voicePreviewPlayer.hidden = true;
+  state.voicePreviewMessage = "";
+}
+
+async function previewVoice() {
+  const voice = effectiveVoice();
+  if (!voice || state.previewingVoice) return;
+  state.previewingVoice = true;
+  elements.previewVoice.textContent = "Preparing…";
+  updateInterface();
+  try {
+    const sampleText =
+      state.sourceMode === "text"
+        ? splitTextScenes(
+            elements.narrationText.value,
+            elements.sceneSplitSelect.value,
+          )[0] || ""
+        : "";
+    const result = await api("/api/preview-voice", {
+      method: "POST",
+      body: JSON.stringify({
+        engine: state.sourceMode === "yaml" ? state.script.engine : "kokoro",
+        language: elements.languageSelect.value,
+        voice,
+        text: sampleText,
+      }),
+    });
+    elements.voicePreviewPlayer.src = result.audio_url;
+    elements.voicePreviewPlayer.hidden = false;
+    await elements.voicePreviewPlayer.play().catch(() => {});
+    state.voicePreviewMessage =
+      `Playing ${result.voice} · ${formatDuration(result.duration_ms / 1000)}`;
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    state.previewingVoice = false;
+    elements.previewVoice.textContent = "▶ Try voice";
+    updateInterface();
+  }
+}
+
 function setSourceMode(mode) {
   if (mode === state.sourceMode || state.generating) return;
+  resetVoicePreview();
   state.sourceMode = mode;
   const textActive = mode === "text";
   const yamlActive = mode === "yaml";
@@ -415,7 +472,16 @@ function updateInterface() {
     state.sourceMode === "yaml" || state.generating;
   elements.voiceSelect.disabled =
     !voiceChoicesReady || state.voicesLoading || state.generating;
-  if (state.sourceMode === "yaml") {
+  elements.previewVoice.disabled =
+    !effectiveVoice() ||
+    state.voicesLoading ||
+    state.generating ||
+    state.previewingVoice;
+  elements.previewVoiceOverview.disabled = elements.previewVoice.disabled;
+  if (state.voicePreviewMessage) {
+    elements.voiceMessage.className = "field-message success";
+    elements.voiceMessage.textContent = state.voicePreviewMessage;
+  } else if (state.sourceMode === "yaml") {
     elements.voiceMessage.className = "field-message";
     elements.voiceMessage.textContent = state.script
       ? "Use the script voice or choose an override."
@@ -589,13 +655,17 @@ async function checkForUpdates(manual) {
     if (result.available) {
       elements.updateTitle.textContent =
         `Script2Video Studio v${result.latest_version} is available`;
-      elements.updateCopy.textContent =
-        `You are using v${result.current_version}. Download the latest Windows installer.`;
+      elements.updateCopy.textContent = result.platform_asset
+        ? `You are using v${result.current_version}. Download the installer for this computer.`
+        : `You are using v${result.current_version}. View the available downloads.`;
       elements.updateBanner.hidden = false;
+      elements.checkUpdates.textContent = "Update available";
     } else if (manual && result.checked) {
       showToast(`You are up to date · v${result.current_version}`);
+      elements.checkUpdates.textContent = "Up to date";
     } else if (manual) {
       showToast("Could not check for updates. Try again when you are online.");
+      elements.checkUpdates.textContent = "Check updates";
     }
   } catch {
     if (manual) {
@@ -603,7 +673,9 @@ async function checkForUpdates(manual) {
     }
   } finally {
     elements.checkUpdates.disabled = false;
-    elements.checkUpdates.textContent = "Check for updates";
+    if (elements.checkUpdates.textContent === "Checking…") {
+      elements.checkUpdates.textContent = "Check updates";
+    }
   }
 }
 
@@ -661,8 +733,16 @@ elements.textMode.addEventListener("click", () => setSourceMode("text"));
 elements.yamlMode.addEventListener("click", () => setSourceMode("yaml"));
 elements.narrationText.addEventListener("input", updateTextSource);
 elements.sceneSplitSelect.addEventListener("change", updateTextSource);
-elements.languageSelect.addEventListener("change", loadTextVoices);
-elements.voiceSelect.addEventListener("change", updateInterface);
+elements.languageSelect.addEventListener("change", () => {
+  resetVoicePreview();
+  loadTextVoices();
+});
+elements.voiceSelect.addEventListener("change", () => {
+  resetVoicePreview();
+  updateInterface();
+});
+elements.previewVoice.addEventListener("click", previewVoice);
+elements.previewVoiceOverview.addEventListener("click", previewVoice);
 elements.chooseScript.addEventListener("click", () => choose("script"));
 elements.chooseVideo.addEventListener("click", () => choose("video"));
 elements.chooseOutput.addEventListener("click", () => choose("folder"));

@@ -25,7 +25,10 @@
             <span class="privacy-dot" aria-hidden="true"></span>
             Local workspace
           </span>
-          <span class="version" id="version">v1.0.6</span>
+          <button class="topbar-update-button" id="check-updates" type="button">
+            Check updates
+          </button>
+          <span class="version" id="version">v1.0.7</span>
         </div>
       </header>
 
@@ -197,11 +200,17 @@
               </div>
 
               <label class="field-label" for="voice-select">Voice</label>
-              <div class="select-wrap">
-                <select id="voice-select" disabled>
-                  <option value="">Choose a voice</option>
-                </select>
+              <div class="voice-control">
+                <div class="select-wrap">
+                  <select id="voice-select" disabled>
+                    <option value="">Choose a voice</option>
+                  </select>
+                </div>
+                <button id="preview-voice" type="button" disabled>
+                  ▶ Try voice
+                </button>
               </div>
+              <audio id="voice-preview-player" controls preload="none" hidden></audio>
               <p class="field-message" id="voice-message">
                 Loading voices for the selected language.
               </p>
@@ -238,7 +247,7 @@
                 <span class="step-state neutral">WAV · SRT · JSON</span>
               </div>
 
-              <label class="field-label" for="output-path">Output folder</label>
+              <label class="field-label" for="output-path">Workspace folder</label>
               <div class="path-control">
                 <input
                   id="output-path"
@@ -251,6 +260,9 @@
                   Browse
                 </button>
               </div>
+              <p class="field-message">
+                Each generation gets its own dated folder inside this workspace.
+              </p>
 
               <button class="generate-button" id="generate" type="button" disabled>
                 <span id="generate-label">Generate voice + subtitles</span>
@@ -274,9 +286,15 @@
               </span>
             </div>
 
-            <div class="audio-stage" aria-hidden="true">
-              <div class="play-orb"><span></span></div>
-              <div class="waveform">
+            <div class="audio-stage">
+              <button
+                class="play-orb"
+                id="preview-voice-overview"
+                type="button"
+                aria-label="Try selected voice"
+                disabled
+              ><span></span></button>
+              <div class="waveform" aria-hidden="true">
                 <i style="--h: 24%"></i><i style="--h: 47%"></i>
                 <i style="--h: 72%"></i><i style="--h: 36%"></i>
                 <i style="--h: 84%"></i><i style="--h: 58%"></i>
@@ -348,7 +366,6 @@
         <span>Script2Video Studio</span>
         <div class="footer-actions">
           <span>Local-first voice production</span>
-          <button id="check-updates" type="button">Check for updates</button>
           <button id="quit-studio" type="button">Quit Studio</button>
         </div>
       </footer>

@@ -1,6 +1,6 @@
 # Windows application packaging
 
-Script2Video Studio v1.0.6 is packaged as a 64-bit, per-user Windows
+Script2Video Studio v1.0.7 is packaged as a 64-bit, per-user Windows
 application. Users receive one installer and do not need to install Python.
 
 ## Package design
@@ -9,7 +9,7 @@ application. Users receive one installer and do not need to install Python.
 Python 3.11 + Script2Video + Kokoro + pywebview
     -> PyInstaller one-folder application
     -> Inno Setup compressed installer
-    -> Script2Video-Studio-1.0.6-Windows-x64.exe
+    -> Script2Video-Studio-1.0.7-Windows-x64.exe
 ```
 
 The one-folder layout starts faster than a giant self-extracting executable.
@@ -24,9 +24,10 @@ support is needed. Neither is embedded in the installer.
 
 ## Automated build
 
-The `Build Windows application` GitHub Actions workflow runs on 64-bit Windows,
-installs the English spaCy model, executes the tests, builds the application,
-compiles the installer, and uploads it as a workflow artifact.
+The `Build desktop applications` GitHub Actions workflow runs both Windows and
+macOS jobs. The Windows job installs the English spaCy model, executes the
+tests, builds the application, compiles the installer, and uploads it as a
+workflow artifact.
 
 It runs for relevant pull requests, version tags, and manual dispatches.
 
@@ -45,7 +46,7 @@ py -3.11 -m venv .venv-build
 The resulting installer is written to:
 
 ```text
-release/Script2Video-Studio-1.0.6-Windows-x64.exe
+release/Script2Video-Studio-1.0.7-Windows-x64.exe
 ```
 
 ## Release checklist
@@ -59,4 +60,4 @@ release/Script2Video-Studio-1.0.6-Windows-x64.exe
    one-folder application; the build script enforces this automatically.
 7. Verify all four text splitting patterns and confirm the root output includes
    `captions.srt` with one timed cue per generated scene.
-8. Create the `v1.0.6` GitHub release only after this smoke test passes.
+8. Create the `v1.0.7` GitHub release only after this smoke test passes.

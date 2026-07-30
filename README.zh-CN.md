@@ -23,6 +23,9 @@
 > **版本 1.0.6：** 修正纯文本工作流程。粘贴完整脚本后，可选择按句子、段落、
 > 换行或整个脚本拆分场景，并按实际生成语音的时长写出匹配的 SRT 字幕。
 
+> **版本 1.0.7：** 每次生成都会保存到独立的日期文件夹；更新状态与检查按钮集中
+> 显示在顶部；声音支持真正试听；并新增 Apple Silicon macOS 安装包。
+
 ## Studio 界面预览
 
 ![Script2Video Studio v1.0.3 工作区](docs/screenshots/studio-v1.0.3-overview.png)
@@ -32,7 +35,7 @@ YAML 模式，用于复用逐场景的高级设置。
 
 ![已识别两个场景并可开始生成的 Script2Video Studio](docs/screenshots/studio-v1.0.3-ready.png)
 
-### v1.0.3 新功能
+### v1.0.7 新功能
 
 - 在 Windows 原生桌面窗口中打开 Studio，不再默认跳转浏览器标签页。
 - 启动后自动检查 GitHub Releases，也可以点击 **Check for updates** 手动检查。
@@ -44,6 +47,10 @@ YAML 模式，用于复用逐场景的高级设置。
 - 只有文件真正生成完成后才显示完成面板。
 - 在 Windows、macOS 和 Linux 上可靠打开输出文件夹。
 - 打包应用默认把结果保存到 `Documents/Script2Video Studio`。
+- 每次生成创建独立文件夹，避免不同任务的文件混在一起。
+- 生成前可用当前脚本文本试听所选 Kokoro 声音。
+- 在顶部版本号旁统一显示更新检查和更新状态。
+- 同时提供 Windows x64 安装程序与 macOS Apple Silicon DMG。
 
 ## 选择工作流程
 
@@ -57,6 +64,10 @@ YAML 模式，用于复用逐场景的高级设置。
 安装不需要 Git。请下载
 [最新项目 ZIP](https://github.com/saslifat-gif/script2video/archive/refs/heads/main.zip)，
 解压后，在 `script2video-main` 文件夹中打开终端。
+
+桌面应用可从 [GitHub Releases](https://github.com/saslifat-gif/script2video/releases)
+下载 Windows x64 安装程序或 Apple Silicon macOS DMG。只有从源码运行时才需要
+Python 3.11；仅在选择视频时需要 FFmpeg。
 
 `script2video` 目前作为本地 Python 应用运行，需要 Python 3.11。只有选择视频时
 才需要 FFmpeg。
@@ -333,8 +344,8 @@ script2video/
 │   ├── srt.py              # SRT 导入、清理和字幕到场景转换
 │   ├── capcut.py           # 视频时长适配与 CapCut 素材包
 │   └── cli.py              # validate、voices、render、capcut、companion
-├── packaging/windows/      # PyInstaller 与 Inno Setup 配置
-├── scripts/                # Windows 发布构建自动化
+├── packaging/              # Windows 与 macOS 应用打包配置
+├── scripts/                # Windows 与 macOS 发布构建自动化
 ├── examples/               # 文本与 YAML 示例
 ├── docs/                   # 设计文档、打包说明和界面截图
 └── tests/                  # 单元测试与回归测试
