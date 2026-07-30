@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -26,7 +27,7 @@ class WebAppTests(unittest.TestCase):
     def test_bootstrap_exposes_local_defaults(self) -> None:
         payload = _bootstrap_payload()
 
-        self.assertEqual(payload["version"], "1.0.5")
+        self.assertEqual(payload["version"], "1.0.6")
         self.assertIn(payload["platform"], {"darwin", "linux", "win32"})
         self.assertEqual(
             Path(str(payload["default_output"])).parts[-2:],
@@ -89,7 +90,7 @@ class WebAppTests(unittest.TestCase):
 
         self.assertFalse(result["checked"])
         self.assertFalse(result["available"])
-        self.assertEqual(result["current_version"], "1.0.5")
+        self.assertEqual(result["current_version"], "1.0.6")
 
     def test_semantic_versions_compare_numerically(self) -> None:
         self.assertGreater(_version_tuple("1.10.0"), _version_tuple("1.9.9"))
@@ -108,18 +109,32 @@ class WebAppTests(unittest.TestCase):
             ):
                 _open_path(Path("C:/output"))
 
-    def test_plain_text_paragraphs_become_scenes(self) -> None:
+    def test_plain_text_sentences_become_scenes(self) -> None:
         project = _project_from_text(
-            "First paragraph.\n\nSecond paragraph.", "en-US", "fake", "test_low"
+            "First sentence. Second sentence!", "en-US", "fake", "test_low"
         )
 
-        self.assertEqual(project.title, "First paragraph.")
+        self.assertEqual(project.title, "First sentence.")
         self.assertEqual(project.voice, "test_low")
         self.assertEqual(
             [scene.id for scene in project.scenes],
-            ["paragraph-001", "paragraph-002"],
+            ["scene-001", "scene-002"],
         )
-        self.assertEqual(project.scenes[1].text, "Second paragraph.")
+        self.assertEqual(project.scenes[1].text, "Second sentence!")
+
+    def test_plain_text_uses_selected_scene_pattern(self) -> None:
+        project = _project_from_text(
+            "First line\nSecond line\n\nLast paragraph",
+            "en-US",
+            "fake",
+            "test_low",
+            split_mode="paragraph",
+        )
+
+        self.assertEqual(
+            [scene.text for scene in project.scenes],
+            ["First line Second line", "Last paragraph"],
+        )
 
     def test_web_job_can_generate_narration_with_fake_engine(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -158,11 +173,15 @@ class WebAppTests(unittest.TestCase):
             )
 
             self.assertEqual(job.status, "complete", job.error)
-            self.assertIn("script.txt", job.files)
+            self.assertNotIn("script.txt", job.files)
             self.assertIn("narration.wav", job.files)
+            self.assertIn("captions.srt", job.files)
             self.assertEqual(len(list((output / "scenes").glob("*.wav"))), 2)
+            captions = (output / "captions.srt").read_text(encoding="utf-8")
+            self.assertIn("Hello from plain text.", captions)
+            self.assertIn("This is another scene.", captions)
             self.assertEqual(
-                (output / "script.txt").read_text(encoding="utf-8"),
+                (output / "metadata" / "source.txt").read_text(encoding="utf-8"),
                 "Hello from plain text.\n\nThis is another scene.\n",
             )
 
@@ -197,15 +216,25 @@ class WebAppTests(unittest.TestCase):
 
     def test_browser_assets_are_packaged_with_the_application(self) -> None:
         static = Path(__file__).parents[1] / "src" / "script2video" / "web_static"
+        html = (static / "index.html").read_text(encoding="utf-8")
+        javascript = (static / "app.js").read_text(encoding="utf-8")
 
-        self.assertIn("Script2Video Studio", (static / "index.html").read_text())
-        self.assertIn("narration-text", (static / "index.html").read_text())
-        self.assertIn("srt-mode", (static / "index.html").read_text())
-        self.assertIn("--accent:", (static / "app.css").read_text())
-        self.assertIn("[hidden]", (static / "app.css").read_text())
-        self.assertIn("/api/voices", (static / "app.js").read_text())
-        self.assertIn("/api/inspect-srt", (static / "app.js").read_text())
-        self.assertIn("/api/generate", (static / "app.js").read_text())
+        self.assertIn("Script2Video Studio", html)
+        self.assertIn("narration-text", html)
+        self.assertIn("Every sentence automatically", html)
+        self.assertIn("scene-split-select", html)
+        self.assertNotIn('id="srt-mode"', html)
+        stylesheet = (static / "app.css").read_text(encoding="utf-8")
+        self.assertIn("--accent:", stylesheet)
+        self.assertIn("[hidden]", stylesheet)
+        self.assertIn("/api/voices", javascript)
+        self.assertIn("splitTextScenes", javascript)
+        self.assertIn("/api/generate", javascript)
+        html_ids = set(re.findall(r'id="([^"]+)"', html))
+        javascript_ids = set(
+            re.findall(r'document\.querySelector\("#([^"]+)"\)', javascript)
+        )
+        self.assertEqual(javascript_ids - html_ids, set())
 
 
 if __name__ == "__main__":
