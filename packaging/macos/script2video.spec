@@ -22,11 +22,21 @@ hiddenimports = [
 ]
 
 for package in (
+    "cn2an",
+    "fugashi",
+    "jaconv",
+    "jieba",
     "kokoro",
     "misaki",
+    "mojimoji",
     "language_tags",
     "espeakng_loader",
     "en_core_web_sm",
+    "ordered_set",
+    "pyopenjtalk",
+    "pypinyin",
+    "pypinyin_dict",
+    "unidic",
     "webview",
     "mlx",
     "mlx_whisper",

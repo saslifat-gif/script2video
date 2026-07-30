@@ -16,7 +16,10 @@ class WindowsPackagingTests(unittest.TestCase):
         )
 
         self.assertIn('"language-tags>=1.3.1,<2"', project)
+        self.assertIn('"misaki[ja,zh]>=0.9.4,<1"', project)
         self.assertIn('"language_tags"', spec)
+        self.assertIn('"pyopenjtalk"', spec)
+        self.assertIn('"pypinyin"', spec)
         self.assertIn(
             r"language_tags\data\json\index.json",
             build_script,

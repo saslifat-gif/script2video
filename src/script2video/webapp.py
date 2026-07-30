@@ -404,20 +404,23 @@ class _WebRequestHandler(BaseHTTPRequestHandler):
 
 def _bootstrap_payload() -> dict[str, Any]:
     example = Path.cwd() / "examples" / "minecraft.yaml"
-    languages = sorted(
-        {
-            language
-            for voice in KokoroEngine().list_voices()
-            for language in voice.languages
-        }
-    )
+    voices_by_language: dict[str, list[dict[str, str]]] = {}
+    for voice in KokoroEngine().list_voices():
+        for language in voice.languages:
+            voices_by_language.setdefault(language, []).append(
+                {"id": voice.id, "name": voice.name}
+            )
     return {
         "platform": sys.platform,
         "alignment_available": _AI_ALIGNMENT_AVAILABLE,
         "default_script": str(example.resolve()) if example.is_file() else "",
         "default_output": str(_default_output_path()),
         "default_language": "en-US",
-        "languages": languages,
+        "languages": sorted(voices_by_language),
+        # The catalog is static and tiny. Shipping it with bootstrap avoids a
+        # second local HTTP request whenever the user changes language, which
+        # is more reliable inside embedded Windows/macOS webviews.
+        "voices_by_language": voices_by_language,
         "version": __version__,
         "releases_url": _RELEASES_URL,
     }
