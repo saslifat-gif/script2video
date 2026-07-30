@@ -20,8 +20,8 @@
 > 打包应用中，修复 v1.0.3 生成旁白时出现的
 > `language_tags/data/json/index.json` 文件缺失错误。
 
-> **版本 1.0.6：** 修正纯文本工作流程。粘贴完整脚本后，Studio 会自动逐句拆分
-> 场景、生成连续旁白，并按照实际生成语音的时长自动写出匹配的 SRT 字幕。
+> **版本 1.0.6：** 修正纯文本工作流程。粘贴完整脚本后，可选择按句子、段落、
+> 换行或整个脚本拆分场景，并按实际生成语音的时长写出匹配的 SRT 字幕。
 
 ## Studio 界面预览
 
@@ -37,8 +37,9 @@ YAML 模式，用于复用逐场景的高级设置。
 - 在 Windows 原生桌面窗口中打开 Studio，不再默认跳转浏览器标签页。
 - 启动后自动检查 GitHub Releases，也可以点击 **Check for updates** 手动检查。
 - 粘贴文本后可以正常选择所有兼容声音。
-- 自动把完整脚本逐句转换为场景，并实时显示场景数和字数。
-- 按每句实际生成的语音时长自动创建 `captions.srt`。
+- 可选择按句子、空行段落、每次换行或整个脚本拆分场景。
+- 句子模式会忽略排版换行，只根据句末标点拆分。
+- 按每个场景实际生成的语音时长自动创建 `captions.srt`。
 - 脚本和声音准备完成前，保持 **Generate Narration** 按钮不可用。
 - 只有文件真正生成完成后才显示完成面板。
 - 在 Windows、macOS 和 Linux 上可靠打开输出文件夹。
@@ -147,13 +148,15 @@ Kokoro 通常会通过 Python 依赖提供音素支持。如果某个声音提�
 2. 保持选择 **Paste text（粘贴文本）**，输入需要朗读的内容。
 3. 保持 **Video（视频）** 为空。
 4. 选择语言、声音和输出文件夹。
-5. 点击 **Generate voice + subtitles（生成语音和字幕）**。
+5. 选择 **Scene splitting pattern（场景拆分方式）**。
+6. 点击 **Generate voice + subtitles（生成语音和字幕）**。
 6. 完成后点击 **Open Output（打开输出）**。
 
-每个句子会自动成为一个场景。输出文件夹包含 `script.txt`、`narration.wav`、
-`captions.srt`、`manifest.json` 和每个句子的独立 WAV 文件。字幕时间直接来自
-实际生成的语音，因此每条字幕会跟随对应的语音场景。此流程不需要 FFmpeg。
-需要复用逐场景声音、语速和停顿设置时，可切换到 **YAML file（YAML 文件）**。
+默认句子模式会忽略换行，因此复制网页时的排版换行不会产生错误场景。也可以选择
+按空行段落、每次换行拆分，或把整个脚本作为一个场景。根输出文件夹包含
+`narration.wav`、`captions.srt`、`manifest.json` 和每个场景的独立 WAV；原始文本
+保存在 `metadata/source.txt`。字幕时间直接来自实际生成的语音。此流程不需要
+FFmpeg。需要复用逐场景声音、语速和停顿设置时，可切换到 YAML 模式。
 
 ### 选择视频，创建 CapCut 素材包
 
@@ -193,7 +196,7 @@ script2video capcut examples/minecraft.yaml \
 
 - 使用 [Kokoro](https://github.com/hexgrad/kokoro) 在本地生成自然语音。
 - 直接粘贴文本生成语音，无需编写 YAML。
-- 自动把完整纯文本脚本拆分为逐句场景。
+- 可选择按句子、段落、换行或整个脚本拆分场景。
 - 按实际生成语音的时长自动创建可编辑 SRT 字幕。
 - 在原生桌面窗口中运行打包后的界面。
 - 在不影响离线使用的情况下检查 GitHub Releases 更新。
@@ -326,7 +329,7 @@ script2video/
 │   ├── pipeline.py         # 场景渲染与旁白合成
 │   ├── alignment.py        # 可选的单词级语音对齐
 │   ├── captions.py         # 易读的 SRT 字幕分段
-│   ├── text.py             # 纯文本逐句场景拆分
+│   ├── text.py             # 可选择的纯文本场景拆分
 │   ├── srt.py              # SRT 导入、清理和字幕到场景转换
 │   ├── capcut.py           # 视频时长适配与 CapCut 素材包
 │   └── cli.py              # validate、voices、render、capcut、companion

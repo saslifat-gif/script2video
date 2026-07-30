@@ -57,6 +57,6 @@ release/Script2Video-Studio-1.0.6-Windows-x64.exe
 5. Quit Studio from the footer and uninstall it from Windows Settings.
 6. Confirm `_internal/language_tags/data/json/index.json` exists in the
    one-folder application; the build script enforces this automatically.
-7. Paste a multi-sentence script and confirm it creates one scene WAV and one
-   timed SRT cue per sentence.
+7. Verify all four text splitting patterns and confirm the root output includes
+   `captions.srt` with one timed cue per generated scene.
 8. Create the `v1.0.6` GitHub release only after this smoke test passes.

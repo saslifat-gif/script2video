@@ -16,7 +16,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from platform import machine
-from typing import Any
+from typing import Any, cast
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
@@ -31,7 +31,7 @@ from script2video.engines.kokoro import KokoroEngine
 from script2video.errors import Script2VideoError
 from script2video.pipeline import render_project
 from script2video.srt import load_srt_cues, load_srt_project
-from script2video.text import split_text_scenes
+from script2video.text import SceneSplitMode, split_text_scenes
 from script2video.video import probe_video
 
 _STATIC_ROOT = Path(__file__).with_name("web_static")
@@ -469,11 +469,17 @@ def _run_text_generation_job(
         engine_name = str(options.get("engine", "kokoro")).strip()
         language = str(options.get("language", "en-US")).strip()
         voice = str(options.get("voice", "")).strip()
+        split_mode = cast(
+            SceneSplitMode, str(options.get("split_mode", "sentence")).strip()
+        )
         if not voice:
             raise ValueError("Voice is required")
-        project = _project_from_text(text, language, engine_name, voice)
+        project = _project_from_text(
+            text, language, engine_name, voice, split_mode=split_mode
+        )
         output_path.mkdir(parents=True, exist_ok=True)
-        input_path = output_path / "script.txt"
+        input_path = output_path / "metadata" / "source.txt"
+        input_path.parent.mkdir(parents=True, exist_ok=True)
         input_path.write_text(f"{text.strip()}\n", encoding="utf-8")
         _render_generation(
             job,
@@ -529,12 +535,16 @@ def _run_srt_generation_job(
 
 
 def _project_from_text(
-    text: str, language: str, engine: str, voice: str
+    text: str,
+    language: str,
+    engine: str,
+    voice: str,
+    split_mode: SceneSplitMode = "sentence",
 ) -> ProjectConfig:
-    sentences = split_text_scenes(text)
-    if not sentences:
+    scene_texts = split_text_scenes(text, mode=split_mode)
+    if not scene_texts:
         raise ValueError("Narration text is required")
-    first_line = sentences[0]
+    first_line = scene_texts[0]
     title = first_line[:57] + "..." if len(first_line) > 60 else first_line
     return ProjectConfig(
         title=title,
@@ -542,8 +552,8 @@ def _project_from_text(
         engine=engine,
         voice=voice,
         scenes=[
-            SceneConfig(id=f"sentence-{index:03d}", text=sentence)
-            for index, sentence in enumerate(sentences, start=1)
+            SceneConfig(id=f"scene-{index:03d}", text=scene_text)
+            for index, scene_text in enumerate(scene_texts, start=1)
         ],
     )
 

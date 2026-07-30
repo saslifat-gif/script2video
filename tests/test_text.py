@@ -33,11 +33,31 @@ class TextSceneTests(unittest.TestCase):
             ["Dr. Smith measured 3.5 seconds.", "Then we continued."],
         )
 
-    def test_blank_line_ends_unpunctuated_scene(self) -> None:
+    def test_sentence_mode_ignores_layout_newlines(self) -> None:
         self.assertEqual(
             split_text_scenes("Opening title\n\nThe story begins"),
-            ["Opening title", "The story begins"],
+            ["Opening title The story begins"],
         )
+
+    def test_supports_selectable_split_patterns(self) -> None:
+        text = "First line\nSecond line\n\nLast paragraph"
+
+        self.assertEqual(
+            split_text_scenes(text, mode="paragraph"),
+            ["First line Second line", "Last paragraph"],
+        )
+        self.assertEqual(
+            split_text_scenes(text, mode="line"),
+            ["First line", "Second line", "Last paragraph"],
+        )
+        self.assertEqual(
+            split_text_scenes(text, mode="whole"),
+            ["First line Second line Last paragraph"],
+        )
+
+    def test_rejects_unknown_split_pattern(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Scene split mode"):
+            split_text_scenes("Hello.", mode="unknown")  # type: ignore[arg-type]
 
 
 if __name__ == "__main__":

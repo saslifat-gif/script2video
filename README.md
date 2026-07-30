@@ -24,8 +24,8 @@ files.
 > v1.0.3.
 
 > **Version 1.0.6:** Corrects the plain-text workflow. Paste one complete script
-> and Studio automatically splits it into sentence-level scenes, generates the
-> continuous voice track, and writes an SRT timed to the generated speech.
+> and choose Sentence, Paragraph, Line break, or Whole script scene splitting.
+> Studio generates the continuous voice track and an SRT timed to the speech.
 
 ## Studio preview
 
@@ -42,8 +42,9 @@ scene-level control.
 - Open Studio in an embedded Windows desktop window instead of a browser tab.
 - Check GitHub Releases automatically or with **Check for updates**.
 - Select any compatible voice after pasting text.
-- Split a complete pasted script into sentence-level scenes automatically.
-- Generate `captions.srt` from the actual duration of every generated sentence.
+- Choose Sentence, Paragraph, Line break, or Whole script scene splitting.
+- In Sentence mode, ignore layout newlines and split on spoken punctuation.
+- Generate `captions.srt` from the actual duration of every generated scene.
 - Keep **Generate Narration** disabled until the script and voice are ready.
 - Show the completion panel only after files have actually been generated.
 - Open generated output folders reliably on Windows, macOS, and Linux.
@@ -158,13 +159,16 @@ version; press `Ctrl+C` there when you are finished.
 2. Keep **Paste text** selected and enter the words you want spoken.
 3. Leave **Video** empty.
 4. Choose a language, voice, and output folder.
-5. Select **Generate voice + subtitles**.
+5. Choose a **Scene splitting pattern**.
+6. Select **Generate voice + subtitles**.
 6. When generation finishes, select **Open Output**.
 
-Every sentence becomes a scene automatically. The output contains `script.txt`,
-`narration.wav`, `captions.srt`, `manifest.json`, and one WAV file per sentence.
-SRT timings come from the actual generated audio, so each subtitle follows its
-matching voice scene. FFmpeg is not required. Select **YAML file** for reusable
+Sentence mode is the default and ignores newlines, so copied page formatting
+does not create unwanted scenes. You can instead split on blank-line paragraphs,
+every line break, or keep the whole script as one scene. The root output contains
+`narration.wav`, `captions.srt`, `manifest.json`, and one WAV per scene. Original
+text is retained under `metadata/source.txt`. SRT timings come from the actual
+generated audio. FFmpeg is not required. Select **YAML file** for reusable
 per-scene voice, speed, and pause settings.
 
 ### Build a CapCut package with a video
@@ -207,7 +211,7 @@ The result is ready in `builds/minecraft-capcut/` as `narration.wav`,
 
 - Generate natural speech locally with [Kokoro](https://github.com/hexgrad/kokoro).
 - Paste text and generate a voice track without writing YAML.
-- Split a complete plain-text script into sentence-level scenes automatically.
+- Choose sentence, paragraph, line-break, or whole-script scene splitting.
 - Generate an editable SRT from the exact duration of the generated scenes.
 - Run the packaged UI inside a native desktop window.
 - Check GitHub Releases for updates without blocking offline use.
@@ -348,7 +352,7 @@ script2video/
 │   ├── pipeline.py         # Scene rendering and narration assembly
 │   ├── alignment.py        # Optional word-level speech alignment
 │   ├── captions.py         # Readable SRT cue creation
-│   ├── text.py             # Plain-text sentence-to-scene splitting
+│   ├── text.py             # Selectable plain-text scene splitting
 │   ├── srt.py              # SRT import, cleanup, and cue-to-scene conversion
 │   ├── capcut.py           # Video fitting and CapCut package workflow
 │   └── cli.py              # validate, voices, render, capcut, companion

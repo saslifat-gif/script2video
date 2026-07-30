@@ -334,6 +334,10 @@ h1 {
   font-weight: 750;
 }
 
+.split-label {
+  margin-top: 18px;
+}
+
 .source-tabs {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

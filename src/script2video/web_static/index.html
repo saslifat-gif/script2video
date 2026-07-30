@@ -108,6 +108,23 @@
                   </p>
                   <span class="character-count" id="character-count">0 words</span>
                 </div>
+
+                <label class="field-label split-label" for="scene-split-select">
+                  Scene splitting pattern
+                </label>
+                <div class="select-wrap">
+                  <select id="scene-split-select">
+                    <option value="sentence" selected>
+                      Sentence punctuation (recommended)
+                    </option>
+                    <option value="paragraph">Blank-line paragraphs</option>
+                    <option value="line">Every line break</option>
+                    <option value="whole">Whole script as one scene</option>
+                  </select>
+                </div>
+                <p class="field-message" id="split-message">
+                  Newlines are ignored. A new scene starts after sentence punctuation.
+                </p>
               </div>
 
               <div

@@ -10,6 +10,8 @@ const elements = {
   textSource: document.querySelector("#text-source"),
   yamlSource: document.querySelector("#yaml-source"),
   narrationText: document.querySelector("#narration-text"),
+  sceneSplitSelect: document.querySelector("#scene-split-select"),
+  splitMessage: document.querySelector("#split-message"),
   textMessage: document.querySelector("#text-message"),
   characterCount: document.querySelector("#character-count"),
   scriptPath: document.querySelector("#script-path"),
@@ -286,16 +288,30 @@ function setSourceMode(mode) {
 function textStats() {
   const text = elements.narrationText.value.trim();
   const words = text ? text.split(/\s+/).length : 0;
-  const scenes = splitTextScenes(text).length;
+  const scenes = splitTextScenes(text, elements.sceneSplitSelect.value).length;
   const firstLine = text.split(/\n/).find((line) => line.trim())?.trim() || "";
   return { text, words, scenes, title: firstLine || "Paste text to begin" };
 }
 
-function splitTextScenes(text) {
+function splitTextScenes(text, mode = "sentence") {
   const clean = text.trim();
   if (!clean) return [];
-  if (typeof Intl.Segmenter !== "function") {
+  if (mode === "whole") return [clean.replace(/\s+/g, " ")];
+  if (mode === "line") {
     return clean
+      .split(/\r?\n/)
+      .map((line) => line.trim().replace(/\s+/g, " "))
+      .filter(Boolean);
+  }
+  if (mode === "paragraph") {
+    return clean
+      .split(/\r?\n\s*\r?\n+/)
+      .map((paragraph) => paragraph.trim().replace(/\s+/g, " "))
+      .filter(Boolean);
+  }
+  const narration = clean.replace(/\s+/g, " ");
+  if (typeof Intl.Segmenter !== "function") {
+    return narration
       .split(/(?<=[.!?。！？])\s+|\n\s*\n+/)
       .map((sentence) => sentence.trim())
       .filter(Boolean);
@@ -304,13 +320,22 @@ function splitTextScenes(text) {
     elements.languageSelect.value || "en-US",
     { granularity: "sentence" },
   );
-  return [...segmenter.segment(clean)]
+  return [...segmenter.segment(narration)]
     .map((entry) => entry.segment.trim())
     .filter(Boolean);
 }
 
 function updateTextSource() {
   const stats = textStats();
+  const splitPattern = elements.sceneSplitSelect.value;
+  const splitDescriptions = {
+    sentence:
+      "Newlines are ignored. A new scene starts after sentence punctuation.",
+    paragraph: "Only a blank line starts a new scene.",
+    line: "Every non-empty line becomes a separate scene.",
+    whole: "The complete script is generated as one scene.",
+  };
+  elements.splitMessage.textContent = splitDescriptions[splitPattern];
   elements.characterCount.textContent =
     `${stats.words} ${stats.words === 1 ? "word" : "words"}`;
   elements.textMessage.className = stats.text
@@ -383,6 +408,7 @@ function updateInterface() {
 
   elements.clearVideo.hidden = !hasVideoPath;
   elements.narrationText.disabled = state.generating;
+  elements.sceneSplitSelect.disabled = state.generating;
   elements.textMode.disabled = state.generating;
   elements.yamlMode.disabled = state.generating;
   elements.languageSelect.disabled =
@@ -422,19 +448,13 @@ function updateInterface() {
     ? "Video + captions"
     : "Voice + subtitles";
 
-  const sourceFile =
-    state.sourceMode === "text"
-      ? `<li><span class="file-type">TXT</span> Saved source text</li>`
-      : "";
   elements.deliveryFiles.innerHTML = state.video
     ? `<li><span class="file-type">WAV</span> Fitted narration track</li>
        <li><span class="file-type">SRT</span> Editable subtitles</li>
-       <li><span class="file-type">JSON</span> Timing manifest</li>
-       ${sourceFile}`
+       <li><span class="file-type">JSON</span> Timing manifest</li>`
     : `<li><span class="file-type">WAV</span> Narration track</li>
        <li><span class="file-type">SRT</span> Timed subtitles</li>
-       <li><span class="file-type">JSON</span> Timing manifest</li>
-       ${sourceFile}`;
+       <li><span class="file-type">JSON</span> Timing manifest</li>`;
 
   if (state.sourceMode === "text" && text.text) {
     elements.scriptState.textContent = "Ready";
@@ -503,6 +523,7 @@ async function generate() {
         video: elements.videoPath.value.trim(),
         output: state.output,
         voice: elements.voiceSelect.value,
+        split_mode: elements.sceneSplitSelect.value,
         fit: elements.fitToggle.checked,
         align: elements.alignToggle.checked,
       }),
@@ -639,6 +660,7 @@ function formatDuration(totalSeconds) {
 elements.textMode.addEventListener("click", () => setSourceMode("text"));
 elements.yamlMode.addEventListener("click", () => setSourceMode("yaml"));
 elements.narrationText.addEventListener("input", updateTextSource);
+elements.sceneSplitSelect.addEventListener("change", updateTextSource);
 elements.languageSelect.addEventListener("change", loadTextVoices);
 elements.voiceSelect.addEventListener("change", updateInterface);
 elements.chooseScript.addEventListener("click", () => choose("script"));
