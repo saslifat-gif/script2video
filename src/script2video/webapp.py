@@ -26,7 +26,7 @@ from script2video import __version__
 from script2video.alignment import MLXWhisperAligner
 from script2video.audio import wav_bytes
 from script2video.capcut import create_capcut_package
-from script2video.captions import build_srt, write_srt
+from script2video.captions import build_srt, split_caption_text, write_srt
 from script2video.config import ProjectConfig, SceneConfig, load_project
 from script2video.engines.base import SynthesisRequest
 from script2video.engines.fake import FakeEngine
@@ -634,7 +634,17 @@ def _render_generation(
 ) -> None:
     if video_path is None:
         job.message = "Rendering narration scene by scene"
-        manifest = render_project(project, input_path, output_path, engine)
+        # Render each readable caption card separately so its manifest boundary is
+        # taken from the audio that was actually synthesized.  Rendering a whole
+        # scene and dividing its duration by character count drifts around pauses
+        # and words whose speaking time differs significantly from their length.
+        manifest = render_project(
+            project,
+            input_path,
+            output_path,
+            engine,
+            segmenter=split_caption_text,
+        )
         job.message = "Creating subtitles from the voice timing"
         write_srt(output_path / "captions.srt", build_srt(project, manifest))
     else:

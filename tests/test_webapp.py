@@ -29,7 +29,7 @@ class WebAppTests(unittest.TestCase):
     def test_bootstrap_exposes_local_defaults(self) -> None:
         payload = _bootstrap_payload()
 
-        self.assertEqual(payload["version"], "1.0.8")
+        self.assertEqual(payload["version"], "1.0.9")
         self.assertIn(payload["platform"], {"darwin", "linux", "win32"})
         self.assertEqual(
             Path(str(payload["default_output"])).parts[-2:],
@@ -123,7 +123,7 @@ class WebAppTests(unittest.TestCase):
 
         self.assertFalse(result["checked"])
         self.assertFalse(result["available"])
-        self.assertEqual(result["current_version"], "1.0.8")
+        self.assertEqual(result["current_version"], "1.0.9")
 
     def test_generation_gets_a_unique_named_output_folder(self) -> None:
         root = Path("/tmp/studio")
@@ -232,6 +232,43 @@ class WebAppTests(unittest.TestCase):
                 (output / "metadata" / "source.txt").read_text(encoding="utf-8"),
                 "Hello from plain text.\n\nThis is another scene.\n",
             )
+
+    def test_text_subtitle_cards_use_exact_synthesized_boundaries(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "exact-caption-build"
+            job = GenerationJob(id="exact-caption-job")
+            text = (
+                "This deliberately long sentence contains enough individual words "
+                "to create several short and readable subtitle cards for testing."
+            )
+
+            _run_text_generation_job(
+                job,
+                text,
+                None,
+                output,
+                {
+                    "engine": "fake",
+                    "language": "en-US",
+                    "voice": "test_narrator",
+                },
+            )
+
+            self.assertEqual(job.status, "complete", job.error)
+            manifest = json.loads(
+                (output / "manifest.json").read_text(encoding="utf-8")
+            )
+            segments = manifest["scenes"][0]["segments"]
+            self.assertGreaterEqual(len(segments), 2)
+            captions = (output / "captions.srt").read_text(encoding="utf-8")
+            for segment in segments:
+                start_ms = round(segment["start_ms"])
+                end_ms = round(segment["end_ms"])
+                start = (
+                    f"00:00:{start_ms // 1000:02d},{start_ms % 1000:03d}"
+                )
+                end = f"00:00:{end_ms // 1000:02d},{end_ms % 1000:03d}"
+                self.assertIn(f"{start} --> {end}", captions)
 
     def test_web_job_splits_srt_cues_into_scenes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

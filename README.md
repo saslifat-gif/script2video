@@ -35,6 +35,10 @@ files.
 > cards. Long spoken sections now become short, two-line timed captions instead
 > of one paragraph-sized SRT cue.
 
+> **Version 1.0.9:** Fixes subtitle drift in text-only generation. Every short
+> subtitle card is now synthesized as a measured audio segment, so its SRT
+> boundaries follow the generated voice instead of a character-count estimate.
+
 ## Studio preview
 
 ![Script2Video Studio v1.0.3 workspace](docs/screenshots/studio-v1.0.3-overview.png)
@@ -45,7 +49,7 @@ scene-level control.
 
 ![Script2Video Studio with a two-scene script ready to generate](docs/screenshots/studio-v1.0.3-ready.png)
 
-### New in v1.0.8
+### New in v1.0.9
 
 - Open Studio in an embedded Windows desktop window instead of a browser tab.
 - Check GitHub Releases automatically or with **Check for updates**.
@@ -64,6 +68,7 @@ scene-level control.
 - Show voice-scene and subtitle-card counts separately before generation.
 - Limit subtitle cards to 10 words and 64 characters with at most two lines.
 - Preserve technical names such as `Wacatac.B!ml` during sentence splitting.
+- Time every text-only subtitle card from its exact synthesized audio segment.
 
 ## Choose a workflow
 
