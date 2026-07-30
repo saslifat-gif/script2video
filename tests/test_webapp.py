@@ -29,7 +29,7 @@ class WebAppTests(unittest.TestCase):
     def test_bootstrap_exposes_local_defaults(self) -> None:
         payload = _bootstrap_payload()
 
-        self.assertEqual(payload["version"], "1.0.7")
+        self.assertEqual(payload["version"], "1.0.8")
         self.assertIn(payload["platform"], {"darwin", "linux", "win32"})
         self.assertEqual(
             Path(str(payload["default_output"])).parts[-2:],
@@ -123,7 +123,7 @@ class WebAppTests(unittest.TestCase):
 
         self.assertFalse(result["checked"])
         self.assertFalse(result["available"])
-        self.assertEqual(result["current_version"], "1.0.7")
+        self.assertEqual(result["current_version"], "1.0.8")
 
     def test_generation_gets_a_unique_named_output_folder(self) -> None:
         root = Path("/tmp/studio")
@@ -269,7 +269,7 @@ class WebAppTests(unittest.TestCase):
 
         self.assertIn("Script2Video Studio", html)
         self.assertIn("narration-text", html)
-        self.assertIn("Every sentence automatically", html)
+        self.assertIn("subtitles remain short and readable", html)
         self.assertIn("scene-split-select", html)
         self.assertNotIn('id="srt-mode"', html)
         stylesheet = (static / "app.css").read_text(encoding="utf-8")
@@ -278,6 +278,8 @@ class WebAppTests(unittest.TestCase):
         self.assertIn("/api/voices", javascript)
         self.assertIn("/api/preview-voice", javascript)
         self.assertIn("splitTextScenes", javascript)
+        self.assertIn("splitCaptionText", javascript)
+        self.assertNotIn("Intl.Segmenter", javascript)
         self.assertIn("/api/generate", javascript)
         html_ids = set(re.findall(r'id="([^"]+)"', html))
         javascript_ids = set(

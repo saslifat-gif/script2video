@@ -26,6 +26,9 @@
 > **版本 1.0.7：** 每次生成都会保存到独立的日期文件夹；更新状态与检查按钮集中
 > 显示在顶部；声音支持真正试听；并新增 Apple Silicon macOS 安装包。
 
+> **版本 1.0.8：** 将自然的旁白场景与易读的字幕卡分开。较长的语音段落现在会
+> 自动生成多个短小、最多两行的定时字幕，不再显示整段文字。
+
 ## Studio 界面预览
 
 ![Script2Video Studio v1.0.3 工作区](docs/screenshots/studio-v1.0.3-overview.png)
@@ -35,7 +38,7 @@ YAML 模式，用于复用逐场景的高级设置。
 
 ![已识别两个场景并可开始生成的 Script2Video Studio](docs/screenshots/studio-v1.0.3-ready.png)
 
-### v1.0.7 新功能
+### v1.0.8 新功能
 
 - 在 Windows 原生桌面窗口中打开 Studio，不再默认跳转浏览器标签页。
 - 启动后自动检查 GitHub Releases，也可以点击 **Check for updates** 手动检查。
@@ -51,6 +54,9 @@ YAML 模式，用于复用逐场景的高级设置。
 - 生成前可用当前脚本文本试听所选 Kokoro 声音。
 - 在顶部版本号旁统一显示更新检查和更新状态。
 - 同时提供 Windows x64 安装程序与 macOS Apple Silicon DMG。
+- 生成前分别显示旁白场景数与字幕卡数量。
+- 每张字幕卡最多 10 个单词、64 个字符，并限制为两行。
+- 句子拆分时保留 `Wacatac.B!ml` 等技术名称。
 
 ## 选择工作流程
 

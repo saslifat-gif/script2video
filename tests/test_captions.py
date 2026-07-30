@@ -93,6 +93,47 @@ class CaptionTests(unittest.TestCase):
         self.assertIn("00:00:00,000 --> 00:00:00,500", srt)
         self.assertIn("00:00:00,500 --> 00:00:02,000", srt)
 
+    def test_long_exact_segment_becomes_multiple_readable_cards(self) -> None:
+        text = (
+            "I just downloaded the AMD GPU version and Windows Defender says "
+            "that it contains a warning, but I cannot tell whether the result "
+            "is safe or a false positive."
+        )
+        project = ProjectConfig.model_validate(
+            {
+                "title": "Readable captions",
+                "language": "en-US",
+                "engine": "fake",
+                "voice": "test_narrator",
+                "scenes": [{"id": "intro", "text": text}],
+            }
+        )
+        manifest = {
+            "audio": {"sample_rate": 24_000},
+            "scenes": [
+                {
+                    "id": "intro",
+                    "start_sample": 0,
+                    "speech_end_sample": 240_000,
+                    "segments": [
+                        {
+                            "text": text,
+                            "start_sample": 0,
+                            "end_sample": 240_000,
+                        }
+                    ],
+                }
+            ],
+        }
+
+        blocks = build_srt(project, manifest).strip().split("\n\n")
+
+        self.assertGreaterEqual(len(blocks), 3)
+        for block in blocks:
+            caption_lines = block.splitlines()[2:]
+            self.assertLessEqual(len(caption_lines), 2)
+            self.assertLessEqual(max(map(len, caption_lines)), 40)
+
 
 if __name__ == "__main__":
     unittest.main()
