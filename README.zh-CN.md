@@ -38,16 +38,17 @@
 > **版本 1.0.11：** 公开桌面发行改为仅提供 Windows。Release 不再附带未经签名
 > 的 Mac DMG；macOS 源码运行和本地开发构建仍然保留。
 
+> **版本 1.0.12：** Studio 界面全面优化，采用更现代优雅的视觉风格，并改进字体、
+> 间距、卡片层级、蓝色主操作按钮以及 Windows 小屏幕布局。
+
 ## Studio 界面预览
 
-![Script2Video Studio v1.0.3 工作区](docs/screenshots/studio-v1.0.3-overview.png)
+![Script2Video Studio v1.0.12 工作区](docs/screenshots/studio-v1.0.12-overview.png)
 
 工作区把脚本、旁白设置和生成状态集中在同一页面。默认可以直接粘贴文本，同时保留
 YAML 模式，用于复用逐场景的高级设置。
 
-![已识别两个场景并可开始生成的 Script2Video Studio](docs/screenshots/studio-v1.0.3-ready.png)
-
-### v1.0.11 新功能
+### v1.0.12 新功能
 
 - 在 Windows 原生桌面窗口中打开 Studio，不再默认跳转浏览器标签页。
 - 启动后自动检查 GitHub Releases，也可以点击 **Check for updates** 手动检查。
@@ -70,6 +71,8 @@ YAML 模式，用于复用逐场景的高级设置。
 - 直接在 Studio 中加载全部九种语言的声音目录。
 - Windows 应用新增日语和普通话中文的发音依赖。
 - 保留 macOS 源码与本地构建支持，但不再公开未经签名的 DMG。
+- Studio 采用更精致的 Apple / Google 风格视觉系统。
+- 优化间距、输入焦点状态、响应式布局和生成状态信息层级。
 
 ## 选择工作流程
 
