@@ -16,12 +16,12 @@ VSVersionInfo(
         [
           StringStruct('CompanyName', 'Script2Video'),
           StringStruct('FileDescription', 'Script2Video Studio'),
-          StringStruct('FileVersion', '1.0.11'),
+          StringStruct('FileVersion', '1.0.12'),
           StringStruct('InternalName', 'Script2Video Studio'),
           StringStruct('LegalCopyright', 'Copyright 2026 Script2Video contributors'),
           StringStruct('OriginalFilename', 'Script2Video Studio.exe'),
           StringStruct('ProductName', 'Script2Video Studio'),
-          StringStruct('ProductVersion', '1.0.11')
+          StringStruct('ProductVersion', '1.0.12')
         ]
       )
     ]),

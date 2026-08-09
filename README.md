@@ -47,17 +47,19 @@ files.
 > unsigned Mac DMG is no longer attached to releases; Mac development and local
 > source use remain supported.
 
+> **Version 1.0.12:** Redesigns Studio with a more elegant, modern interface:
+> clearer visual hierarchy, refined typography, softer cards, polished blue
+> actions, and improved layouts for compact Windows screens.
+
 ## Studio preview
 
-![Script2Video Studio v1.0.3 workspace](docs/screenshots/studio-v1.0.3-overview.png)
+![Script2Video Studio v1.0.12 workspace](docs/screenshots/studio-v1.0.12-overview.png)
 
 The workspace keeps the script, narration settings, and production status in
 one view. Paste text is the default; YAML remains available for reusable,
 scene-level control.
 
-![Script2Video Studio with a two-scene script ready to generate](docs/screenshots/studio-v1.0.3-ready.png)
-
-### New in v1.0.11
+### New in v1.0.12
 
 - Open Studio in an embedded Windows desktop window instead of a browser tab.
 - Check GitHub Releases automatically or with **Check for updates**.
@@ -80,6 +82,8 @@ scene-level control.
 - Load the full voice catalog for all nine languages directly with Studio.
 - Include Japanese and Mandarin Chinese pronunciation support in Windows builds.
 - Keep macOS source and local-build support without publishing unsigned DMGs.
+- Use a refined Apple/Google-inspired visual system across Studio.
+- Improve spacing, focus states, responsive layout, and production-status clarity.
 
 ## Choose a workflow
 
