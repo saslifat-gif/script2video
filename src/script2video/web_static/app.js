@@ -49,7 +49,9 @@ const elements = {
   jobPanel: document.querySelector("#job-panel"),
   jobMessage: document.querySelector("#job-message"),
   successPanel: document.querySelector("#success-panel"),
+  successTitle: document.querySelector("#success-title"),
   successCopy: document.querySelector("#success-copy"),
+  successWarning: document.querySelector("#success-warning"),
   openOutput: document.querySelector("#open-output"),
   openCapCut: document.querySelector("#open-capcut"),
   checkUpdates: document.querySelector("#check-updates"),
@@ -76,8 +78,12 @@ const state = {
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
-    headers: { "Content-Type": "application/json" },
     ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(state.bootstrap ? { "X-Studio-Token": state.bootstrap.csrf_token } : {}),
+      ...options.headers,
+    },
   });
   const data = await response.json();
   if (!response.ok) {
@@ -720,10 +726,19 @@ function finishSuccessfully(job) {
   elements.successPanel.hidden = false;
   elements.successCopy.textContent =
     `${job.files.length} files saved to ${job.output}`;
+  const warnings = job.warnings || [];
+  elements.successTitle.textContent = warnings.length
+    ? "Files saved — review timing" : "Your files are ready";
+  elements.successWarning.textContent = warnings.join(" ");
+  elements.successWarning.hidden = warnings.length === 0;
   elements.openCapCut.hidden = !state.video;
   elements.previewPanel.classList.remove("running");
   updateInterface();
-  setStatus("Complete", "ready", "Your files are ready");
+  setStatus(
+    warnings.length ? "Review timing" : "Complete",
+    warnings.length ? "" : "ready",
+    warnings.length ? "Your files need a timing review" : "Your files are ready",
+  );
 }
 
 function finishWithError(message) {

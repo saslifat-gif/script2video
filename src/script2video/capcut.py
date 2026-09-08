@@ -72,6 +72,15 @@ def create_capcut_package(
         fit_iterations += 1
 
     final_duration_ms = float(manifest["audio"]["duration_ms"])
+    converged = _relative_difference(final_duration_ms, target_duration_ms) <= 0.005
+    if fit_to_video and not converged:
+        difference_seconds = (final_duration_ms - target_duration_ms) / 1000
+        direction = "longer" if difference_seconds > 0 else "shorter"
+        manifest["warnings"].append(
+            f"Narration is {abs(difference_seconds):.2f} seconds {direction} than "
+            f"the video after {fit_iterations} fitting attempts. "
+            "Review the timing in CapCut before using this package."
+        )
     srt_name = "captions.srt"
     alignment_metadata: dict[str, Any] = {"enabled": False}
     if aligner is None:
@@ -97,8 +106,7 @@ def create_capcut_package(
             "requested": fit_to_video,
             "applied": fit_applied,
             "iterations": fit_iterations,
-            "converged": _relative_difference(final_duration_ms, target_duration_ms)
-            <= 0.005,
+            "converged": converged,
             "speed_factor": round(speed_factor, 6),
             "initial_narration_duration_ms": initial_duration_ms,
             "final_narration_duration_ms": final_duration_ms,
