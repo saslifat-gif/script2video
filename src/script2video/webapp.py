@@ -17,14 +17,12 @@ from datetime import UTC, datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from platform import machine
 from typing import Any, cast
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from script2video import __version__
-from script2video.alignment import MLXWhisperAligner
 from script2video.audio import wav_bytes
 from script2video.capcut import create_capcut_package
 from script2video.captions import build_srt, split_caption_text, write_srt
@@ -39,7 +37,7 @@ from script2video.text import SceneSplitMode, split_text_scenes
 from script2video.video import probe_video
 
 _STATIC_ROOT = Path(__file__).with_name("web_static")
-_AI_ALIGNMENT_AVAILABLE = sys.platform == "darwin" and machine() == "arm64"
+_CONTAINER_MODE = os.environ.get("SCRIPT2VIDEO_CONTAINER") == "1"
 _MAX_REQUEST_BYTES = 1_000_000
 _RELEASES_URL = "https://github.com/saslifat-gif/script2video/releases"
 _LATEST_RELEASE_API = (
@@ -394,9 +392,9 @@ class _WebRequestHandler(BaseHTTPRequestHandler):
         self._send_json({"opened": str(path)})
 
     def _open_capcut(self) -> None:
-        if sys.platform == "darwin":
-            command = ["open", "-a", "CapCut"]
-        elif sys.platform == "win32":
+        if _CONTAINER_MODE:
+            raise ValueError("Open CapCut on your computer and import the output files")
+        if sys.platform == "win32":
             command = ["cmd", "/c", "start", "", "CapCut"]
         else:
             raise ValueError("Open CapCut manually on this operating system")
@@ -449,14 +447,16 @@ def _bootstrap_payload() -> dict[str, Any]:
             )
     return {
         "platform": sys.platform,
-        "alignment_available": _AI_ALIGNMENT_AVAILABLE,
+        "alignment_available": False,
+        "desktop_actions": not _CONTAINER_MODE and sys.platform == "win32",
+        "container_mode": _CONTAINER_MODE,
         "default_script": str(example.resolve()) if example.is_file() else "",
         "default_output": str(_default_output_path()),
         "default_language": "en-US",
         "languages": sorted(voices_by_language),
         # The catalog is static and tiny. Shipping it with bootstrap avoids a
         # second local HTTP request whenever the user changes language, which
-        # is more reliable inside embedded Windows/macOS webviews.
+        # is more reliable inside embedded Windows webviews.
         "voices_by_language": voices_by_language,
         "version": __version__,
         "releases_url": _RELEASES_URL,
@@ -464,6 +464,8 @@ def _bootstrap_payload() -> dict[str, Any]:
 
 
 def _default_output_path() -> Path:
+    if _CONTAINER_MODE:
+        return Path("/data/output")
     if getattr(sys, "frozen", False):
         return (Path.home() / "Documents" / "Script2Video Studio").resolve()
     return (Path.cwd() / "builds" / "studio-output").resolve()
@@ -687,13 +689,6 @@ def _render_generation(
         write_srt(output_path / "captions.srt", build_srt(project, manifest))
     else:
         job.message = "Matching narration and captions to the video"
-        use_alignment = bool(options.get("align", True))
-        default_model = "tiny.en" if project.language.startswith("en") else "tiny"
-        aligner = (
-            MLXWhisperAligner(str(options.get("align_model", default_model)))
-            if use_alignment and _AI_ALIGNMENT_AVAILABLE
-            else None
-        )
         manifest = create_capcut_package(
             project,
             input_path,
@@ -701,7 +696,7 @@ def _render_generation(
             output_path,
             engine,
             fit_to_video=bool(options.get("fit", True)),
-            aligner=aligner,
+            aligner=None,
         )
 
     job.warnings = list(manifest.get("warnings", []))
@@ -750,20 +745,9 @@ def _generation_output_path(
 
 
 def _choose_local_path(kind: str) -> str:
-    if sys.platform == "darwin":
-        kind_clause = "folder" if kind == "folder" else "file"
-        prompt = {
-            "script": "Choose a YAML script",
-            "subtitle": "Choose an SRT subtitle script",
-            "video": "Choose a source video",
-            "folder": "Choose an output folder",
-        }[kind]
-        command = [
-            "osascript",
-            "-e",
-            f'POSIX path of (choose {kind_clause} with prompt "{prompt}")',
-        ]
-    elif sys.platform == "win32":
+    if _CONTAINER_MODE:
+        raise ValueError("Enter a mounted path under /data/input or /data/output")
+    if sys.platform == "win32":
         if kind == "folder":
             script = (
                 "Add-Type -AssemblyName System.Windows.Forms; "
@@ -805,14 +789,14 @@ def _choose_local_path(kind: str) -> str:
 
 
 def _open_path(path: Path) -> None:
+    if _CONTAINER_MODE:
+        raise ValueError("Your files are in the mounted data/output folder")
     if sys.platform == "win32":
         try:
             os.startfile(path)  # type: ignore[attr-defined]
         except OSError as exc:
             raise ValueError(f"Could not open output folder: {exc}") from exc
         return
-    elif sys.platform == "darwin":
-        command = ["open", str(path)]
     else:
         command = ["xdg-open", str(path)]
     try:

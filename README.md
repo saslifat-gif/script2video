@@ -2,470 +2,168 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-Local-first tools for turning a complete pasted script or structured YAML into
-narration, sentence-level scenes, timed captions, and an editable CapCut package.
+Turn pasted text or YAML scripts into local Kokoro narration, readable timed
+subtitles, and files you can import into CapCut. Supported deployments are the
+**Windows desktop application** and the **Docker browser application**.
 
-`script2video` runs speech generation and alignment on your machine. It can
-render narration scene by scene, fit the result to an existing video, and
-produce standard WAV, SRT, and JSON files without modifying CapCut project
-files.
+![Script2Video Studio](docs/screenshots/studio-v1.0.12-overview.png)
 
-> **Status:** A public Windows desktop installer is available. macOS remains
-> supported when running from source. Narration generation does not require a
-> video; add one only for a timed CapCut package with captions.
+## Docker
 
-> **Version 1.0.3:** The Windows application now opens Studio inside its own
-> desktop window, checks for updates, and fixes voice selection and output-folder
-> opening in Paste text mode. Blank-line paragraphs automatically become scenes.
-
-> **Version 1.0.4 hotfix:** Restores the language registry required by Kokoro
-> inside the packaged Windows application. This fixes the
-> `language_tags/data/json/index.json` error seen when generating narration in
-> v1.0.3.
-
-> **Version 1.0.6:** Corrects the plain-text workflow. Paste one complete script
-> and choose Sentence, Paragraph, Line break, or Whole script scene splitting.
-> Studio generates the continuous voice track and an SRT timed to the speech.
-
-> **Version 1.0.7:** Keeps every generation in a separate dated folder, puts
-> update status beside the app version, adds playable voice auditions, and
-> introduces a native Apple Silicon macOS download.
-
-> **Version 1.0.8:** Separates natural voice scenes from readable subtitle
-> cards. Long spoken sections now become short, two-line timed captions instead
-> of one paragraph-sized SRT cue.
-
-> **Version 1.0.9:** Fixes subtitle drift in text-only generation. Every short
-> subtitle card is now synthesized as a measured audio segment, so its SRT
-> boundaries follow the generated voice instead of a character-count estimate.
-
-> **Version 1.0.10:** Makes all supported language voices appear immediately
-> in Studio and packages Kokoro's required Japanese and Chinese pronunciation
-> components with both desktop applications.
-
-> **Version 1.0.11:** Moves public desktop distribution to Windows only. The
-> unsigned Mac DMG is no longer attached to releases; Mac development and local
-> source use remain supported.
-
-> **Version 1.0.12:** Redesigns Studio with a more elegant, modern interface:
-> clearer visual hierarchy, refined typography, softer cards, polished blue
-> actions, and improved layouts for compact Windows screens.
-
-## Studio preview
-
-![Script2Video Studio v1.0.12 workspace](docs/screenshots/studio-v1.0.12-overview.png)
-
-The workspace keeps the script, narration settings, and production status in
-one view. Paste text is the default; YAML remains available for reusable,
-scene-level control.
-
-### New in v1.0.12
-
-- Open Studio in an embedded Windows desktop window instead of a browser tab.
-- Check GitHub Releases automatically or with **Check for updates**.
-- Select any compatible voice after pasting text.
-- Choose Sentence, Paragraph, Line break, or Whole script scene splitting.
-- In Sentence mode, ignore layout newlines and split on spoken punctuation.
-- Generate `captions.srt` from the actual duration of every generated scene.
-- Keep **Generate Narration** disabled until the script and voice are ready.
-- Show the completion panel only after files have actually been generated.
-- Open generated output folders reliably on Windows, macOS, and Linux.
-- Save packaged-app output to `Documents/Script2Video Studio` by default.
-- Keep each generation in its own named folder so files never mix together.
-- Hear the selected Kokoro voice with the current script before generating.
-- Show update checking and update availability together in the top bar.
-- Download a tested Windows x64 desktop installer from every public release.
-- Show voice-scene and subtitle-card counts separately before generation.
-- Limit subtitle cards to 10 words and 64 characters with at most two lines.
-- Preserve technical names such as `Wacatac.B!ml` during sentence splitting.
-- Time every text-only subtitle card from its exact synthesized audio segment.
-- Load the full voice catalog for all nine languages directly with Studio.
-- Include Japanese and Mandarin Chinese pronunciation support in Windows builds.
-- Keep macOS source and local-build support without publishing unsigned DMGs.
-- Use a refined Apple/Google-inspired visual system across Studio.
-- Improve spacing, focus states, responsive layout, and production-status clarity.
-
-## Choose a workflow
-
-| Goal | Video required? | Result |
-| --- | --- | --- |
-| Generate voice and subtitles | No | `narration.wav`, `captions.srt`, sentence WAV files, and `manifest.json` |
-| Build a CapCut package | Yes | Narration, editable `captions.srt`, scenes, and timing metadata |
-
-## Install once
-
-Git is not required. Download the
-[latest project ZIP](https://github.com/saslifat-gif/script2video/archive/refs/heads/main.zip),
-extract it, and open a terminal in the extracted `script2video-main` folder.
-
-For the desktop application, download the Windows x64 installer from
-[GitHub Releases](https://github.com/saslifat-gif/script2video/releases).
-Public macOS DMGs are not provided because the project does not yet have Apple
-signing and notarization. Mac users can follow the source installation below.
-Python 3.11 is needed only when running from source. FFmpeg is needed only when
-you select a video.
-
-The first real-speech installation includes PyTorch, Transformers, tokenizers,
-spaCy, and Kokoro's language tools. This is expected and may take several
-minutes. The first render downloads the selected voice model; later runs reuse
-the local cache.
-
-### macOS (source installation)
-
-Install Python and the application:
+Install Docker Engine with Compose, or Docker Desktop, and start Docker.
+Clone this repository, then run from its directory:
 
 ```bash
-brew install python@3.11 espeak-ng
-python3.11 -m venv .venv
-.venv/bin/python -m pip install --upgrade pip
-.venv/bin/python -m pip install ".[kokoro,alignment]"
+mkdir -p data/input data/output
+docker compose up --build -d
 ```
 
-If you plan to select a video and create CapCut packages, also run
-`brew install ffmpeg`. If the `brew` command is unavailable, install
-[Homebrew](https://brew.sh/) first.
+Open **http://127.0.0.1:8765**. The first image build downloads Python and speech
+libraries and may take several minutes. The first voice generation downloads
+Kokoro model files. These are reused through the persistent `model-cache` volume.
+The image uses CPU inference and runs as a non-root user.
 
-AI word alignment requires a Mac with Apple Silicon. On an Intel Mac, install
-`.[kokoro]` instead and use the exact caption-timing fallback.
+- Paste your script directly into Studio for narration and subtitles.
+- For YAML or video inputs, put files in `data/input` on your computer, then enter
+  their container paths, such as `/data/input/script.yaml` or `/data/input/video.mp4`.
+- Keep the output workspace at `/data/output`. Each generation appears in its own
+  dated folder under `data/output` on your computer.
+- Import the generated WAV and SRT into CapCut on your computer.
 
-### Windows PowerShell
+The input mount is read-only. Desktop file dialogs, folder launching, and CapCut
+launching are hidden in Docker. The service is published only on localhost and
+retains Studio's host/origin checks and session-token protection. Keep port 8765
+unchanged on both sides of the mapping; arbitrary hostnames and remote hosting
+are not configured by this Compose file. Stop any source-launched Studio using
+that port before starting the container.
 
-Install Python with Windows Package Manager:
+Useful commands:
 
-```powershell
-winget install --exact --id Python.Python.3.11
+```bash
+docker compose logs -f studio
+docker compose down
+docker compose up --build -d
 ```
 
-Close PowerShell after the installation, then reopen it in the project folder.
-This lets Windows recognize the new `py` command.
+`docker compose down` preserves model downloads and your input/output folders.
+Do not add `--volumes` unless you intend to delete the model cache.
+On Linux, the output folder must be writable by container UID 1000. If your
+account uses another UID, set the output folder ownership appropriately before
+starting Studio; do not use world-writable permissions.
 
-In the extracted `script2video-main` folder, install the Windows-compatible
-application:
+## Windows desktop
+
+Download the Windows x64 installer from
+[GitHub Releases](https://github.com/saslifat-gif/script2video/releases).
+It opens Studio in a native window. Paste text, choose a language and voice, and
+select **Generate Narration**. Add a video to build a timed CapCut package.
+
+The first generation downloads the speech model. The installed application saves
+output under `Documents/Script2Video Studio` by default. Every generation gets a
+separate folder. Windows builds include Japanese and Chinese pronunciation tools.
+
+To run Windows from source with Python 3.11:
 
 ```powershell
 py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install ".[kokoro]"
+.\.venv\Scripts\script2video.exe companion
 ```
 
-If you plan to select a video and create CapCut packages, also install FFmpeg:
+Install FFmpeg if using video inputs:
 
 ```powershell
 winget install --exact --id Gyan.FFmpeg
 ```
 
-The app can normally find Winget's FFmpeg installation immediately. If it
-cannot, close and reopen the app once.
+If a voice reports a missing eSpeak library, install eSpeak NG from its
+[official releases](https://github.com/espeak-ng/espeak-ng/releases).
+Do not open `web_static/index.html` directly: Studio must serve the interface
+through its local server so styling, voice selection, and generation work.
 
-Create a separate `.venv` on each computer. Do not copy or synchronize the
-Mac `.venv` to Windows: compiled packages such as `tokenizers`, NumPy, and audio
-libraries contain operating-system-specific files. The repository already
-ignores `.venv/`, so Git and project ZIP files transfer source code only.
+## Narration and subtitle timing
 
-MLX Whisper does not run on Windows. The companion disables it automatically
-and uses exact caption-block timing instead.
+Choose sentence, paragraph, line-break, or whole-script scenes. Readable caption
+cards are synthesized as measured audio segments. Caption boundaries exclude
+leading and trailing near-silence, with a small margin for quiet speech. The audio
+itself, internal pauses, and scene positions stay unchanged.
 
-Kokoro normally supplies its phoneme support through Python dependencies. If a
-voice reports a missing eSpeak library, install the latest Windows MSI from the
-[official eSpeak NG releases](https://github.com/espeak-ng/espeak-ng/releases).
+Windows and Docker use measured segment timing without an additional alignment
+model. The generic Python alignment interface remains available to integrations;
+unreliable timestamps fall back to measured segments with a warning.
 
-## Open the companion UI
+When a video is selected, narration speed is fitted within 0.50–2.00. If it cannot
+match the video within three attempts, files are saved and Studio warns you to
+review timing. Warnings are also recorded in `manifest.json`. Regenerate existing
+exports to apply subtitle-timing improvements.
 
-On macOS:
+## Outputs
 
-```bash
-.venv/bin/script2video companion
+```text
+output/<generation>/
+├── narration.wav
+├── captions.srt
+├── manifest.json
+├── metadata/source.txt      # pasted-text workflow
+└── scenes/
+    └── 001-*.wav
 ```
 
-On Windows PowerShell:
+In CapCut, import `narration.wav` and import `captions.srt` through the caption
+import interface, both starting at timeline time zero. Studio produces standard
+files and does not modify CapCut project files or render a finished video.
 
-```powershell
-.\.venv\Scripts\script2video.exe companion
+## YAML and command line
+
+```yaml
+title: Demo
+language: en-US
+engine: kokoro
+voice: af_heart
+scenes:
+  - id: intro
+    text: Welcome. This script becomes locally generated narration.
+    pause_after_ms: 500
+  - id: explanation
+    text: Each scene is recorded in the manifest.
+    speed: 1.0
 ```
-
-The packaged Windows application opens Script2Video Studio inside its own
-desktop window. The command-line `companion` command continues to use your
-default browser as a lightweight fallback. In both cases the interface is
-served only on `127.0.0.1`, so scripts, videos, and generated audio remain on
-your computer. Keep the terminal window open when using the command-line
-version; press `Ctrl+C` there when you are finished.
-
-## Quick start
-
-### Generate narration without a video
-
-1. Open the companion UI.
-2. Keep **Paste text** selected and enter the words you want spoken.
-3. Leave **Video** empty.
-4. Choose a language, voice, and output folder.
-5. Choose a **Scene splitting pattern**.
-6. Select **Generate voice + subtitles**.
-6. When generation finishes, select **Open Output**.
-
-Sentence mode is the default and ignores newlines, so copied page formatting
-does not create unwanted scenes. You can instead split on blank-line paragraphs,
-every line break, or keep the whole script as one scene. The root output contains
-`narration.wav`, `captions.srt`, `manifest.json`, and one WAV per scene. Original
-text is retained under `metadata/source.txt`. SRT timings come from the actual
-generated audio. FFmpeg is not required. Select **YAML file** for reusable
-per-scene voice, speed, and pause settings.
-
-### Build a CapCut package with a video
-
-Follow the same steps, but choose a source video. The companion switches to
-**Generate CapCut Package** and adds `captions.srt`, duration fitting, and video
-timing metadata. Select **Remove video** at any time to return to narration-only
-mode.
-
-The older SRT-to-voice workflow remains available from the command line for
-backward compatibility:
-
-```bash
-script2video render-srt examples/demo.srt \
-  --language en-US \
-  --voice af_heart \
-  --output builds/srt-demo
-```
-
-For command-line usage, validate a script and render its narration with:
 
 ```bash
 script2video validate examples/demo.yaml
 script2video voices --engine kokoro
 script2video render examples/demo.yaml --output builds/demo
+script2video capcut examples/demo.yaml --video input.mp4 --output builds/package
 ```
 
-To create narration and subtitles fitted to an existing video:
+Use `--no-fit` to preserve scene speeds. The legacy `--no-align` flag is accepted
+for compatibility; built-in generation uses measured caption timing.
+The `render-srt` command converts subtitle text into narration scenes; it does not
+promise to preserve the source SRT's absolute timestamps.
 
-```bash
-script2video capcut examples/minecraft.yaml \
-  --video /path/to/video.mp4 \
-  --output builds/minecraft-capcut
-```
-
-The result is ready in `builds/minecraft-capcut/` as `narration.wav`,
-`captions.srt`, `manifest.json`, and individual scene WAV files.
-
-## Features
-
-- Generate natural speech locally with [Kokoro](https://github.com/hexgrad/kokoro).
-- Paste text and generate a voice track without writing YAML.
-- Choose sentence, paragraph, line-break, or whole-script scene splitting.
-- Generate an editable SRT from the exact duration of the generated scenes.
-- Run the packaged UI inside a native desktop window.
-- Check GitHub Releases for updates without blocking offline use.
-- Generate narration without selecting a video.
-- Render each scene separately and combine it into one normalized narration.
-- Create editable SRT captions from the exact supplied script.
-- Align captions to speech with MLX Whisper on Apple Silicon.
-- Fit narration to a video's duration within a safe speaking-speed range.
-- Build a CapCut-ready package with audio, captions, and timing metadata.
-- Use a deterministic fake engine for fast, model-free development and tests.
-- Launch an always-on-top desktop companion for the CapCut workflow.
-
-## How it works
-
-```text
-Native desktop window or browser companion
-                    |
-             Local Studio UI
-                    |
-          Paste text or YAML script
-                    |
-        +-----------+-----------+
-        |                       |
-     No video                Source video
-        |                       |
-  Kokoro narration       Duration fitting
-        |                 + caption alignment
-        |                       |
- narration.wav          narration.wav
- captions.srt           captions.srt
- sentence WAV files     sentence WAV files
- manifest.json          manifest.json
-```
-
-Everything runs through a local server bound to `127.0.0.1`. The desktop
-launcher embeds that UI with pywebview and Windows Edge WebView2. If the native
-webview is unavailable, Script2Video opens the same local workspace in the
-default browser. Generation jobs run in the background so the interface can
-continue reporting progress. The local server validates the request host and
-origin. Actions require a per-session token supplied automatically by Studio.
-
-## Script format
-
-Projects are small YAML files with settings and ordered scenes:
-
-```yaml
-title: Script2Video Demo
-language: en-US
-engine: kokoro
-voice: af_heart
-
-scenes:
-  - id: intro
-    text: Welcome. This script becomes locally generated narration.
-    pause_after_ms: 500
-
-  - id: explanation
-    text: Each scene is rendered separately and recorded in the manifest.
-    speed: 1.0
-```
-
-See [`examples/demo.yaml`](examples/demo.yaml) for a complete example.
-
-## Create a CapCut package
-
-Generate narration and subtitles timed to an existing video:
-
-```bash
-script2video capcut examples/minecraft.yaml \
-  --video /path/to/video.mp4 \
-  --output builds/minecraft-capcut
-```
-
-The output directory contains:
-
-```text
-builds/minecraft-capcut/
-├── narration.wav
-├── captions.srt
-├── manifest.json
-└── scenes/
-    └── 001-*.wav
-```
-
-By default, the command:
-
-1. Measures the video duration with `ffprobe`.
-2. Adjusts scene speeds to fit the narration to the video.
-3. Aligns the supplied text to the generated speech with MLX Whisper.
-4. Writes editable audio, captions, and timing metadata.
-
-The fitter rejects speeds outside `0.50`–`2.00` to keep narration
-understandable. Use `--no-fit` to preserve script speeds, `--no-align` for the
-exact-block timing fallback, or `--align-model base.en` for a larger English
-alignment model. By default, alignment uses `tiny.en` for English and the
-multilingual `tiny` model for other languages.
-
-If fitting cannot reach the video duration within three attempts, the package
-is still saved, but Studio and the command line warn you to review its timing.
-The same warning is stored in `manifest.json`.
-
-Caption boundaries exclude leading and trailing near-silence in each generated
-audio segment, with a small margin to preserve quiet speech. Audio and scene
-positions stay unchanged. AI alignment is checked against these measured
-segments; if its timestamps drift or alignment fails, captions fall back to
-measured segment timing and the package records a warning. Regenerate the
-package to apply these improvements to existing exports.
-
-To use the package in CapCut Desktop:
-
-1. Import `narration.wav` and place it at timeline time zero.
-2. Open **Captions → Add Captions** and import `captions.srt` as UTF-8.
-3. Keep the captions at timeline time zero and apply your preferred style.
-
-For implementation details, see
-[`docs/m3-capcut.md`](docs/m3-capcut.md).
-
-## Studio workflow
-
-The responsive workspace accepts pasted text by default and keeps YAML as an
-advanced reusable option. The packaged application displays it inside a native
-desktop window, with the system browser retained as a startup fallback. Choose
-a language, voice, optional source video, and output folder; Studio shows source
-and video details before generation, tracks the active job, opens the output
-folder, can launch CapCut, and checks GitHub Releases for updates.
-
-Studio exports standard files instead of editing CapCut projects
-directly because CapCut does not provide a documented desktop plugin SDK.
-
-## Languages and voices
-
-Supported project language codes are `en-US`, `en-GB`, `es-ES`, `fr-FR`,
-`hi-IN`, `it-IT`, `ja-JP`, `pt-BR`, and `zh-CN`. The selected voice must support
-the project language.
-
-List all voices exposed by Kokoro:
-
-```bash
-script2video voices --engine kokoro
-```
-
-## Project structure
-
-```text
-script2video/
-├── src/script2video/
-│   ├── desktop.py          # Native application window and browser fallback
-│   ├── webapp.py           # Local API, jobs, updates, and output actions
-│   ├── web_static/         # Studio HTML, CSS, and JavaScript
-│   ├── engines/            # Kokoro and deterministic fake voice engines
-│   ├── pipeline.py         # Scene rendering and narration assembly
-│   ├── alignment.py        # Optional word-level speech alignment
-│   ├── captions.py         # Readable SRT cue creation
-│   ├── text.py             # Selectable plain-text scene splitting
-│   ├── srt.py              # SRT import, cleanup, and cue-to-scene conversion
-│   ├── capcut.py           # Video fitting and CapCut package workflow
-│   └── cli.py              # validate, voices, render, capcut, companion
-├── packaging/              # Windows and macOS application configuration
-├── scripts/                # Windows and macOS release build automation
-├── examples/               # Paste-text and YAML examples
-├── docs/                   # Design, packaging, and UI screenshots
-└── tests/                  # Unit and regression tests
-```
-
-The UI talks only to the local API. The rendering pipeline is independent of
-the desktop shell, so the same narration and caption features are available
-from both Studio and the command line.
+Supported languages: `en-US`, `en-GB`, `es-ES`, `fr-FR`, `hi-IN`, `it-IT`, `ja-JP`,
+`pt-BR`, and `zh-CN`. Choose a voice matching the script's language.
 
 ## Development
 
-Git is only needed for contributors who want to modify the source. Clone the
-repository and install it in editable mode:
-
-```bash
-git clone https://github.com/saslifat-gif/script2video.git
-cd script2video
-python3.11 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e ".[dev,kokoro,alignment]"
-```
-
-On Windows, activate with `.\.venv\Scripts\Activate.ps1` and omit `alignment`
-from the extras.
-
-Run the complete test suite:
+Install `.[dev,kokoro]` into a Python 3.11 environment, then run:
 
 ```bash
 python -m pytest
-```
-
-Run the JavaScript request and completion-panel regression tests with Node.js:
-
-```bash
 node --test tests/studio-ui.test.cjs
 ```
 
-For quick testing without downloading speech models, override the script's
-engine with the deterministic fake engine:
+Tests use a deterministic fake voice engine and require no speech-model download.
+For a quick command-line smoke test:
 
 ```bash
-script2video render examples/demo.yaml \
-  --engine fake \
-  --voice test_narrator \
-  --output builds/demo-fake
+script2video render examples/demo.yaml --engine fake --voice test_narrator --output builds/demo-fake
 ```
 
-The fake engine writes valid WAV files containing short test tones, so the
-pipeline can be tested end to end without a hosted API or model download.
+The Docker build and smoke-test workflow checks both the API and fake narration
+exports. Real speech additionally requires the model download to complete.
 
-## Documentation
-
-- [Stage 1 design](docs/stage-1-design.md)
+- [Windows packaging](docs/windows-packaging.md)
 - [CapCut package design](docs/m3-capcut.md)
-- [Windows application packaging](docs/windows-packaging.md)
-
-## License
-
-This project is licensed under the terms in [`LICENSE`](LICENSE).
+- [License](LICENSE)

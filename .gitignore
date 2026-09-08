@@ -10,5 +10,4 @@ build/
 release/
 dist/
 *.egg-info/
-packaging/macos/*.icns
-packaging/macos/*.iconset/
+data/

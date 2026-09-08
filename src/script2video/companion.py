@@ -6,7 +6,6 @@ import threading
 import tkinter as tk
 from collections.abc import Callable
 from pathlib import Path
-from platform import machine
 from tkinter import filedialog, messagebox, ttk
 
 from script2video.config import ProjectConfig, load_project
@@ -16,7 +15,6 @@ from script2video.errors import Script2VideoError
 from script2video.video import VideoInfo, probe_video
 
 _USE_SCRIPT_VOICE = "Use script voice"
-_AI_ALIGNMENT_AVAILABLE = sys.platform == "darwin" and machine() == "arm64"
 
 
 def build_generation_command(
@@ -42,10 +40,7 @@ def build_generation_command(
     if video and not fit:
         command.append("--no-fit")
     if video:
-        if align:
-            command.extend(["--align-model", align_model])
-        else:
-            command.append("--no-align")
+        command.append("--no-align")
     return command
 
 
@@ -73,8 +68,6 @@ class CompanionApp:
         self.output = tk.StringVar(value="builds/narration")
         self.voice = tk.StringVar(value=_USE_SCRIPT_VOICE)
         self.fit = tk.BooleanVar(value=True)
-        self.align = tk.BooleanVar(value=_AI_ALIGNMENT_AVAILABLE)
-        self.align_model = tk.StringVar(value="tiny.en")
         self.topmost = tk.BooleanVar(value=True)
         self.script_summary = tk.StringVar(value="Choose a valid YAML script")
         self.video_summary = tk.StringVar(
@@ -305,21 +298,6 @@ class CompanionApp:
             style="Card.TCheckbutton",
         )
         self.fit_check.pack(anchor="w", pady=2)
-        alignment_label = (
-            "AI caption alignment"
-            if _AI_ALIGNMENT_AVAILABLE
-            else "AI caption alignment (Apple Silicon only)"
-        )
-        self.alignment_check = ttk.Checkbutton(
-            options,
-            text=alignment_label,
-            variable=self.align,
-            command=self._update_alignment_state,
-            style="Card.TCheckbutton",
-        )
-        self.alignment_check.pack(anchor="w", pady=2)
-        if not _AI_ALIGNMENT_AVAILABLE:
-            self.alignment_check.state(["disabled"])
         self.advanced_button = ttk.Button(
             narration,
             text="Advanced  ▾",
@@ -329,19 +307,6 @@ class CompanionApp:
         self.advanced_button.grid(row=3, column=1, sticky="w", pady=(8, 0))
 
         self.advanced = ttk.Frame(narration, style="CardBody.TFrame")
-        ttk.Label(self.advanced, text="Alignment model", style="Metadata.TLabel").grid(
-            row=0, column=0, sticky="w", padx=(0, 12)
-        )
-        self.alignment_menu = ttk.Combobox(
-            self.advanced,
-            textvariable=self.align_model,
-            values=("tiny.en", "base.en", "tiny", "base"),
-            state="readonly",
-            width=14,
-            style="Field.TCombobox",
-        )
-        self.alignment_menu.grid(row=0, column=1, sticky="w")
-        self._update_alignment_state()
         ttk.Checkbutton(
             self.advanced,
             text="Keep window on top",
@@ -607,20 +572,6 @@ class CompanionApp:
         video_ready = has_video and self._video_valid
         self.fit_check.state(["!disabled"] if video_ready else ["disabled"])
         self.clear_video_button.state(["!disabled"] if has_video else ["disabled"])
-        if video_ready and _AI_ALIGNMENT_AVAILABLE:
-            self.alignment_check.state(["!disabled"])
-        else:
-            self.alignment_check.state(["disabled"])
-        self._update_alignment_state()
-
-    def _update_alignment_state(self) -> None:
-        self.alignment_menu.configure(
-            state=(
-                "readonly"
-                if self.align.get() and _AI_ALIGNMENT_AVAILABLE and self._video_valid
-                else "disabled"
-            )
-        )
 
     def _set_status(self, message: str, color: str) -> None:
         self.status.set(message)
@@ -639,8 +590,6 @@ class CompanionApp:
             video=video,
             voice=None if voice == _USE_SCRIPT_VOICE else voice,
             fit=self.fit.get(),
-            align=self.align.get(),
-            align_model=self.align_model.get(),
         )
         self._last_generation_had_video = bool(video)
 
@@ -689,15 +638,11 @@ class CompanionApp:
             return
         if sys.platform == "win32":
             subprocess.run(["explorer", str(path)], check=False)
-        elif sys.platform == "darwin":
-            subprocess.run(["open", str(path)], check=False)
         else:
             subprocess.run(["xdg-open", str(path)], check=False)
 
     def _open_capcut(self) -> None:
-        if sys.platform == "darwin":
-            command = ["open", "-a", "CapCut"]
-        elif sys.platform == "win32":
+        if sys.platform == "win32":
             command = ["cmd", "/c", "start", "", "CapCut"]
         else:
             messagebox.showerror(

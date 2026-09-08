@@ -11,17 +11,12 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from typer.testing import CliRunner
-
 from script2video.capcut import create_capcut_package
-from script2video.cli import app
 from script2video.config import ProjectConfig, SceneConfig
 from script2video.engines.fake import FakeEngine
 from script2video.video import VideoInfo
 from script2video.webapp import (
-    GenerationJob,
     WebState,
-    _render_generation,
     _WebRequestHandler,
 )
 
@@ -116,66 +111,6 @@ class GenerationRegressionTests(unittest.TestCase):
             scenes=[SceneConfig(id="intro", text="x" * 40)],
         )
 
-    def test_studio_selects_model_by_language_and_preserves_overrides(self):
-        cases = [
-            ("en-US", {}, "tiny.en"),
-            ("en-GB", {}, "tiny.en"),
-            ("zh-CN", {}, "tiny"),
-            ("ja-JP", {}, "tiny"),
-            ("fr-FR", {}, "tiny"),
-            ("zh-CN", {"align_model": "base"}, "base"),
-        ]
-        for language, options, expected in cases:
-            with self.subTest(language=language, options=options):
-                with tempfile.TemporaryDirectory() as directory:
-                    root = Path(directory)
-                    job = GenerationJob(id="test")
-                    with (
-                        patch("script2video.webapp._AI_ALIGNMENT_AVAILABLE", True),
-                        patch(
-                            "script2video.webapp.create_capcut_package",
-                            return_value={"warnings": ["Review timing"]},
-                        ) as package,
-                    ):
-                        _render_generation(
-                            job,
-                            self.project(language),
-                            root / "in.txt",
-                            root / "video.mp4",
-                            root,
-                            options,
-                            FakeEngine(),
-                        )
-                    self.assertEqual(
-                        package.call_args.kwargs["aligner"].model_name, expected
-                    )
-                    self.assertEqual(job.status, "complete")
-                    self.assertEqual(job.warnings, ["Review timing"])
-                    self.assertEqual(job.output, str(root))
-
-    def test_alignment_remains_optional(self):
-        for available, options in [(False, {}), (True, {"align": False})]:
-            with self.subTest(available=available, options=options):
-                with tempfile.TemporaryDirectory() as directory:
-                    root = Path(directory)
-                    with (
-                        patch("script2video.webapp._AI_ALIGNMENT_AVAILABLE", available),
-                        patch(
-                            "script2video.webapp.create_capcut_package",
-                            return_value={"warnings": []},
-                        ) as package,
-                    ):
-                        _render_generation(
-                            GenerationJob(id="test"),
-                            self.project(),
-                            root / "in.txt",
-                            root / "video.mp4",
-                            root,
-                            options,
-                            FakeEngine(),
-                        )
-                    self.assertIsNone(package.call_args.kwargs["aligner"])
-
     def test_nonconverging_fit_warns_and_preserves_usable_files(self):
         class FixedDurationEngine(FakeEngine):
             def synthesize(self, request):
@@ -208,29 +143,3 @@ class GenerationRegressionTests(unittest.TestCase):
                 self.assertEqual(persisted["warnings"], manifest["warnings"])
                 self.assertTrue((output / "captions.srt").is_file())
                 self.assertTrue((output / "narration.wav").is_file())
-
-    def test_cli_selects_multilingual_model_and_prints_warning(self):
-        manifest = {
-            "warnings": ["Review timing"],
-            "capcut": {"fit": {"final_narration_duration_ms": 1000}},
-        }
-        with (
-            patch("script2video.cli.load_project", return_value=self.project("zh-CN")),
-            patch(
-                "script2video.cli.create_capcut_package", return_value=manifest
-            ) as package,
-        ):
-            result = CliRunner().invoke(
-                app,
-                [
-                    "capcut",
-                    "examples/demo.yaml",
-                    "--video",
-                    "examples/demo.yaml",
-                    "--output",
-                    "unused-output",
-                ],
-            )
-        self.assertEqual(result.exit_code, 0, result.output)
-        self.assertEqual(package.call_args.kwargs["aligner"].model_name, "tiny")
-        self.assertIn("Warning: Review timing", result.output)

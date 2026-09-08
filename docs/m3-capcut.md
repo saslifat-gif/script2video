@@ -37,24 +37,21 @@ Because Kokoro speed is not perfectly linear, the fitter performs up to three
 measured correction passes and accepts a final difference within 0.5 percent.
 
 The manifest records the original duration, target duration, applied factor,
-final duration, and residual difference. A fit within one percent is accepted
-without regenerating the narration.
+final duration, and residual difference. Nonconverging fits produce a visible warning.
 
 ## Caption timing
 
 Caption text comes from the supplied script rather than speech recognition.
-Long scene text is divided into blocks of at most 16 words or approximately 84
+Long scene text is divided into blocks of at most 10 words or approximately 64
 characters. Every block is synthesized independently, and its exact PCM sample
 range is written to the manifest and SRT. Display text is balanced across no
 more than two lines. Scene pauses are not included in caption display time.
 
-By default, MLX Whisper measures word timestamps in the finished narration on
-Apple Silicon. M3 reconciles those measurements to the exact supplied script,
-then regroups the words into short one- or two-line cues. Cue changes therefore
-follow spoken phrases while names, wording, and punctuation remain intentional.
+Built-in generation uses measured audio segments for subtitle timing. Optional
+Python aligner integrations are checked against the measured segments and fall
+back to those measurements when timing is unreliable.
 
-If AI alignment is disabled or unavailable, M3 falls back to the exact
-caption-block PCM boundaries described above.
+Leading and trailing near-silence is excluded from caption display time.
 
 ## Local Studio
 
@@ -70,8 +67,11 @@ The responsive browser interface is served only on localhost and provides:
 - output-folder and CapCut launch buttons.
 
 The browser handles high-DPI scaling, typography, and responsive layout
-consistently on Windows and macOS. A native file chooser is opened by the local
+consistently on Windows. A native file chooser is opened by the local
 Python process, so large videos do not need to be uploaded or copied.
 
 It deliberately does not modify CapCut project files. The stable integration
 contract is standard WAV and SRT import.
+
+Docker serves the same UI with mounted input/output paths; desktop file dialogs
+and application-launch buttons are unavailable there.

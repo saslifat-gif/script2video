@@ -1,0 +1,14 @@
+services:
+  studio:
+    build: .
+    image: script2video:local
+    init: true
+    ports:
+      - "127.0.0.1:8765:8765"
+    volumes:
+      - ./data/input:/data/input:ro
+      - ./data/output:/data/output
+      - model-cache:/home/studio/.cache
+    restart: unless-stopped
+volumes:
+  model-cache:

@@ -218,7 +218,7 @@ by default.
 - Kokoro adapter and voice listing;
 - sentence-aware chunking;
 - scene WAV generation and concatenation;
-- Apple Silicon setup documentation.
+- Windows and Docker setup documentation.
 
 ### M3: Production reliability
 
@@ -229,7 +229,7 @@ by default.
 
 ## 12. Stage 1 acceptance criteria
 
-- A new user can install the project and render the example on Apple Silicon.
+- A new user can install the project and render the example in Docker.
 - The command works without a hosted service or API key.
 - Invalid scripts fail with the exact field and scene that caused the problem.
 - Every scene has its own WAV and exact start/end timing in the manifest.

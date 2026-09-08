@@ -2,420 +2,94 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-一套本地优先的工具，可将完整粘贴文本或结构化 YAML 脚本转换为旁白、逐句场景、
-定时字幕，以及可在 CapCut 中继续编辑的素材包。
+将粘贴的文案或 YAML 脚本转换为本地 Kokoro 旁白、带时间轴的字幕，以及可导入
+CapCut 的文件。支持 **Windows 桌面应用**和 **Docker 浏览器应用**。
 
-`script2video` 在你的电脑上完成语音生成和对齐。它可以逐场景渲染旁白、让
-旁白时长适配现有视频，并生成标准 WAV、SRT 和 JSON 文件，无需修改 CapCut
-项目文件。
+![Script2Video Studio](docs/screenshots/studio-v1.0.12-overview.png)
 
-> **状态：** 公开提供 Windows 桌面安装程序；macOS 可继续从源码运行。生成旁白
-> 不需要视频；只有在需要带字幕和计时信息的 CapCut 素材包时才需要选择视频。
+## Docker 安装
 
-> **版本 1.0.3：** Windows 应用现在会在独立桌面窗口中打开 Studio，并可检查更新；
-> 同时修复粘贴文本模式无法选择声音和打开输出文件夹失败的问题。空行分隔的段落会
-> 自动成为场景。
-
-> **版本 1.0.4 热修复：** 将 Kokoro 所需的语言注册表重新包含到 Windows
-> 打包应用中，修复 v1.0.3 生成旁白时出现的
-> `language_tags/data/json/index.json` 文件缺失错误。
-
-> **版本 1.0.6：** 修正纯文本工作流程。粘贴完整脚本后，可选择按句子、段落、
-> 换行或整个脚本拆分场景，并按实际生成语音的时长写出匹配的 SRT 字幕。
-
-> **版本 1.0.7：** 每次生成都会保存到独立的日期文件夹；更新状态与检查按钮集中
-> 显示在顶部；声音支持真正试听；并新增 Apple Silicon macOS 安装包。
-
-> **版本 1.0.8：** 将自然的旁白场景与易读的字幕卡分开。较长的语音段落现在会
-> 自动生成多个短小、最多两行的定时字幕，不再显示整段文字。
-
-> **版本 1.0.9：** 修复纯文本生成时的字幕漂移。现在每张短字幕卡都会作为独立
-> 语音片段生成，并使用真实音频边界写入 SRT，不再按字符数量估算时间。
-
-> **版本 1.0.10：** Studio 现在会立即显示所有受支持语言的声音，并在 Windows
-> 与 macOS 应用中包含 Kokoro 所需的日语和中文发音组件。
-
-> **版本 1.0.11：** 公开桌面发行改为仅提供 Windows。Release 不再附带未经签名
-> 的 Mac DMG；macOS 源码运行和本地开发构建仍然保留。
-
-> **版本 1.0.12：** Studio 界面全面优化，采用更现代优雅的视觉风格，并改进字体、
-> 间距、卡片层级、蓝色主操作按钮以及 Windows 小屏幕布局。
-
-## Studio 界面预览
-
-![Script2Video Studio v1.0.12 工作区](docs/screenshots/studio-v1.0.12-overview.png)
-
-工作区把脚本、旁白设置和生成状态集中在同一页面。默认可以直接粘贴文本，同时保留
-YAML 模式，用于复用逐场景的高级设置。
-
-### v1.0.12 新功能
-
-- 在 Windows 原生桌面窗口中打开 Studio，不再默认跳转浏览器标签页。
-- 启动后自动检查 GitHub Releases，也可以点击 **Check for updates** 手动检查。
-- 粘贴文本后可以正常选择所有兼容声音。
-- 可选择按句子、空行段落、每次换行或整个脚本拆分场景。
-- 句子模式会忽略排版换行，只根据句末标点拆分。
-- 按每个场景实际生成的语音时长自动创建 `captions.srt`。
-- 脚本和声音准备完成前，保持 **Generate Narration** 按钮不可用。
-- 只有文件真正生成完成后才显示完成面板。
-- 在 Windows、macOS 和 Linux 上可靠打开输出文件夹。
-- 打包应用默认把结果保存到 `Documents/Script2Video Studio`。
-- 每次生成创建独立文件夹，避免不同任务的文件混在一起。
-- 生成前可用当前脚本文本试听所选 Kokoro 声音。
-- 在顶部版本号旁统一显示更新检查和更新状态。
-- 每个公开 Release 提供经过测试的 Windows x64 桌面安装程序。
-- 生成前分别显示旁白场景数与字幕卡数量。
-- 每张字幕卡最多 10 个单词、64 个字符，并限制为两行。
-- 句子拆分时保留 `Wacatac.B!ml` 等技术名称。
-- 使用每张纯文本字幕卡实际生成的音频边界进行精确计时。
-- 直接在 Studio 中加载全部九种语言的声音目录。
-- Windows 应用新增日语和普通话中文的发音依赖。
-- 保留 macOS 源码与本地构建支持，但不再公开未经签名的 DMG。
-- Studio 采用更精致的 Apple / Google 风格视觉系统。
-- 优化间距、输入焦点状态、响应式布局和生成状态信息层级。
-
-## 选择工作流程
-
-| 目标 | 是否需要视频 | 输出 |
-| --- | --- | --- |
-| 生成语音和字幕 | 否 | `narration.wav`、`captions.srt`、逐句 WAV 和 `manifest.json` |
-| 创建 CapCut 素材包 | 是 | 旁白、可编辑的 `captions.srt`、场景音频和计时信息 |
-
-## 只需安装一次
-
-安装不需要 Git。请下载
-[最新项目 ZIP](https://github.com/saslifat-gif/script2video/archive/refs/heads/main.zip)，
-解压后，在 `script2video-main` 文件夹中打开终端。
-
-桌面应用可从 [GitHub Releases](https://github.com/saslifat-gif/script2video/releases)
-下载 Windows x64 安装程序。由于项目目前没有 Apple 签名和公证，公开 Release
-不再提供 macOS DMG；Mac 用户可按照下面的源码安装步骤使用。只有从源码运行时
-才需要 Python 3.11；仅在选择视频时需要 FFmpeg。
-
-`script2video` 目前作为本地 Python 应用运行，需要 Python 3.11。只有选择视频时
-才需要 FFmpeg。
-
-首次安装真实语音功能时会包含 PyTorch、Transformers、tokenizers、spaCy 和
-Kokoro 的语言工具。这是正常现象，可能需要几分钟。首次渲染会下载所选声音模型，
-后续运行会复用本地缓存。
-
-### macOS（源码安装）
-
-安装 Python 和应用：
+安装并启动 Docker Engine（含 Compose）或 Docker Desktop。在仓库目录运行：
 
 ```bash
-brew install python@3.11 espeak-ng
-python3.11 -m venv .venv
-.venv/bin/python -m pip install --upgrade pip
-.venv/bin/python -m pip install ".[kokoro,alignment]"
+mkdir -p data/input data/output
+docker compose up --build -d
 ```
 
-如果要选择视频并创建 CapCut 素材包，请再运行 `brew install ffmpeg`。如果找不到
-`brew` 命令，请先安装 [Homebrew](https://brew.sh/)。
+打开 **http://127.0.0.1:8765**。首次构建需要下载 Python 和语音依赖；首次生成
+还需要下载 Kokoro 模型。模型保存在持久化的 `model-cache` 卷中。镜像使用 CPU
+推理，并以非 root 用户运行。
 
-AI 单词级对齐需要 Apple 芯片 Mac。Intel Mac 请改为安装 `.[kokoro]`，并使用
-精确字幕块计时作为回退方案。
+- 直接粘贴文案，选择语言和声音即可生成旁白与字幕。
+- 将 YAML 或视频放入电脑上的 `data/input`，在页面输入容器内路径，例如
+  `/data/input/script.yaml` 或 `/data/input/video.mp4`。
+- 输出目录保持 `/data/output`；每次生成的文件出现在电脑的 `data/output`
+  下独立的日期文件夹中。
+- 在电脑上打开 CapCut，导入生成的 WAV 和 SRT。
 
-### Windows PowerShell
+输入目录为只读挂载。Docker 模式隐藏原生文件选择器、“打开输出目录”和
+“打开 CapCut”按钮。服务仅映射到本机地址，并保留来源检查和会话令牌保护。
+请保持主机和容器两侧端口都为 8765；当前配置不提供远程网站访问。
+如果已有 Studio 占用该端口，请先停止旧实例。
 
-使用 Windows 程序包管理器安装 Python：
-
-```powershell
-winget install --exact --id Python.Python.3.11
+```bash
+docker compose logs -f studio
+docker compose down
+docker compose up --build -d
 ```
 
-安装完成后关闭 PowerShell，再在项目文件夹中重新打开。这样 Windows 才能识别
-新安装的 `py` 命令。
+`docker compose down` 不删除模型缓存和输入、输出文件。只有确定要删除模型
+缓存时才添加 `--volumes`。Linux 上请确保容器 UID 1000 对输出目录有写权限；
+若当前账号 UID 不同，请调整输出目录所有者，不要开放所有用户写权限。
 
-在解压后的 `script2video-main` 文件夹中安装 Windows 兼容版本：
+## Windows 安装
+
+从 [GitHub Releases](https://github.com/saslifat-gif/script2video/releases)
+下载 Windows x64 安装程序。应用在独立窗口中打开 Studio。默认输出目录为
+`Documents/Script2Video Studio`，每次生成使用独立文件夹。
+
+从源码运行需要 Python 3.11：
 
 ```powershell
 py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install ".[kokoro]"
+.\.venv\Scripts\script2video.exe companion
 ```
 
-如果要选择视频并创建 CapCut 素材包，请再安装 FFmpeg：
+使用视频时安装 FFmpeg：
 
 ```powershell
 winget install --exact --id Gyan.FFmpeg
 ```
 
-应用通常可以立即找到 Winget 安装的 FFmpeg。如果仍然找不到，请关闭并重新打开
-应用一次。
+如果提示缺少 eSpeak，请从 [eSpeak NG 官方发布页](https://github.com/espeak-ng/espeak-ng/releases)
+安装。不要直接打开 `web_static/index.html`，页面需要通过 Studio 本地服务运行。
 
-每台电脑都必须创建独立的 `.venv`。不要把 Mac 的 `.venv` 复制或同步到 Windows；
-`tokenizers`、NumPy 和音频库等编译依赖包含操作系统专用文件。项目已在 Git 中
-忽略 `.venv/`，因此 Git 和项目 ZIP 只会传输源代码。
+## 字幕与视频时间轴
 
-MLX Whisper 无法在 Windows 上运行。Studio 会自动禁用该功能，改用精确字幕块
-计时。
+可按句子、段落、换行或全文划分场景。短字幕块分别生成音频，字幕使用实际
+音频段时长，并排除首尾的近静音，保留少量余量以保护轻声发音。不会剪掉音频、
+改变内部停顿或移动后续场景。
 
-Kokoro 通常会通过 Python 依赖提供音素支持。如果某个声音提示缺少 eSpeak
-库，请从 [eSpeak NG 官方发布页](https://github.com/espeak-ng/espeak-ng/releases)
-安装最新的 Windows MSI。
+Windows 和 Docker 均使用实测字幕时间，不需要额外的对齐模型。Python 通用
+对齐接口保留给集成使用；若外部对齐结果不可靠，会回退到实测时间并记录提醒。
 
-## 打开 Script2Video Studio
+选择视频后，系统在 0.50–2.00 倍语速范围内匹配视频时长。三次尝试后仍无法
+匹配时，会保存文件并显示提醒，`manifest.json` 也记录该提醒。
+已有输出需要重新生成，才能应用时间轴修复。
 
-在 macOS 上运行：
-
-```bash
-.venv/bin/script2video companion
-```
-
-在 Windows PowerShell 中运行：
-
-```powershell
-.\.venv\Scripts\script2video.exe companion
-```
-
-打包后的 Windows 应用会在独立桌面窗口中打开 Script2Video Studio。命令行
-`companion` 仍会使用默认浏览器作为轻量回退方式。两种方式都只通过
-`127.0.0.1` 在本机提供页面，因此脚本、视频和生成的音频不会离开你的电脑。
-使用命令行版本时请保持终端窗口开启，结束后在终端按 `Ctrl+C`。
-
-## 快速开始
-
-### 不选择视频，直接生成旁白
-
-1. 打开 Script2Video Studio。
-2. 保持选择 **Paste text（粘贴文本）**，输入需要朗读的内容。
-3. 保持 **Video（视频）** 为空。
-4. 选择语言、声音和输出文件夹。
-5. 选择 **Scene splitting pattern（场景拆分方式）**。
-6. 点击 **Generate voice + subtitles（生成语音和字幕）**。
-6. 完成后点击 **Open Output（打开输出）**。
-
-默认句子模式会忽略换行，因此复制网页时的排版换行不会产生错误场景。也可以选择
-按空行段落、每次换行拆分，或把整个脚本作为一个场景。根输出文件夹包含
-`narration.wav`、`captions.srt`、`manifest.json` 和每个场景的独立 WAV；原始文本
-保存在 `metadata/source.txt`。字幕时间直接来自实际生成的语音。此流程不需要
-FFmpeg。需要复用逐场景声音、语速和停顿设置时，可切换到 YAML 模式。
-
-### 选择视频，创建 CapCut 素材包
-
-按照相同步骤操作，但额外选择一个源视频。Studio 会切换为
-**Generate CapCut Package（生成 CapCut 素材包）**，并增加 `captions.srt`、
-时长适配和视频计时信息。随时点击 **Remove video（移除视频）** 即可返回纯旁白模式。
-
-旧的 SRT 转语音流程仍保留在命令行中，以兼容已有用法：
-
-```bash
-script2video render-srt examples/demo.srt \
-  --language en-US \
-  --voice af_heart \
-  --output builds/srt-demo
-```
-
-如果使用命令行，可通过以下命令验证脚本并渲染旁白：
-
-```bash
-script2video validate examples/demo.yaml
-script2video voices --engine kokoro
-script2video render examples/demo.yaml --output builds/demo
-```
-
-为现有视频生成时长适配的旁白和字幕：
-
-```bash
-script2video capcut examples/minecraft.yaml \
-  --video /path/to/video.mp4 \
-  --output builds/minecraft-capcut
-```
-
-结果会写入 `builds/minecraft-capcut/`，其中包含 `narration.wav`、
-`captions.srt`、`manifest.json` 和各场景的 WAV 文件。
-
-## 功能
-
-- 使用 [Kokoro](https://github.com/hexgrad/kokoro) 在本地生成自然语音。
-- 直接粘贴文本生成语音，无需编写 YAML。
-- 可选择按句子、段落、换行或整个脚本拆分场景。
-- 按实际生成语音的时长自动创建可编辑 SRT 字幕。
-- 在原生桌面窗口中运行打包后的界面。
-- 在不影响离线使用的情况下检查 GitHub Releases 更新。
-- 无需选择视频即可生成旁白。
-- 分别渲染每个场景，并合成为一条标准化旁白。
-- 根据原始脚本文本生成可编辑的 SRT 字幕。
-- 在 Apple 芯片 Mac 上通过 MLX Whisper 对齐字幕和语音。
-- 在安全语速范围内，让旁白时长适配视频。
-- 生成包含音频、字幕和计时元数据的 CapCut 素材包。
-- 提供确定性的假语音引擎，便于无模型快速开发和测试。
-- 提供清晰、响应式的本地浏览器工作区，辅助 CapCut 工作流程。
-
-## 工作原理
-
-```text
-原生桌面窗口或浏览器 Companion
-                  |
-             本地 Studio UI
-                  |
-          粘贴文本或 YAML 脚本
-                  |
-       +----------+----------+
-       |                     |
-     无视频                选择视频
-       |                     |
-  Kokoro 生成旁白       视频时长适配
-       |                + 字幕语音对齐
-       |                     |
- narration.wav       narration.wav
- captions.srt        captions.srt
- 逐句 WAV             逐句 WAV
- manifest.json       manifest.json
-```
-
-所有功能都通过仅绑定到 `127.0.0.1` 的本地服务运行。桌面启动器使用 pywebview
-和 Windows Edge WebView2 嵌入界面；如果系统无法使用原生 WebView，应用会在
-默认浏览器中打开同一个本地工作区。生成任务在后台运行，因此界面可以持续显示进度。
-
-## 脚本格式
-
-项目使用简洁的 YAML 文件保存设置和有序场景：
-
-```yaml
-title: Script2Video Demo
-language: en-US
-engine: kokoro
-voice: af_heart
-
-scenes:
-  - id: intro
-    text: Welcome. This script becomes locally generated narration.
-    pause_after_ms: 500
-
-  - id: explanation
-    text: Each scene is rendered separately and recorded in the manifest.
-    speed: 1.0
-```
-
-完整示例请查看 [`examples/demo.yaml`](examples/demo.yaml)。
-
-## 创建 CapCut 素材包
-
-生成与现有视频时长匹配的旁白和字幕：
-
-```bash
-script2video capcut examples/minecraft.yaml \
-  --video /path/to/video.mp4 \
-  --output builds/minecraft-capcut
-```
-
-输出目录结构如下：
-
-```text
-builds/minecraft-capcut/
-├── narration.wav
-├── captions.srt
-├── manifest.json
-└── scenes/
-    └── 001-*.wav
-```
-
-默认情况下，该命令会：
-
-1. 使用 `ffprobe` 测量视频时长。
-2. 调整场景语速，使旁白适配视频时长。
-3. 使用 MLX Whisper 将已知脚本文本与语音对齐。
-4. 写出可编辑的音频、字幕和计时元数据。
-
-为了保证旁白清晰易懂，适配器会拒绝 `0.50`–`2.00` 范围之外的语速。使用
-`--no-fit` 可以保留脚本中的原始语速，使用 `--no-align` 可以改用精确字幕块
-计时，使用 `--align-model base.en` 可以选择更大的英语对齐模型。
-
-在 CapCut Desktop 中使用素材包：
-
-1. 导入 `narration.wav`，并将其放在时间线起点。
-2. 打开 **Captions → Add Captions**，以 UTF-8 格式导入 `captions.srt`。
-3. 将字幕保留在时间线起点，然后应用你需要的字幕样式。
-
-实现细节请查看 [`docs/m3-capcut.md`](docs/m3-capcut.md)。
-
-## Studio 工作流程
-
-响应式工作区默认接受完整粘贴文本，并保留 YAML 作为高级复用选项。选择语言、
-声音、可选视频和输出文件夹后，Studio 会显示逐句场景数、跟踪生成状态、打开
-输出文件夹并可启动 CapCut。
-
-Studio 通过标准文件导出，而不是直接修改 CapCut 项目，因为 CapCut 没有提供
-公开的桌面插件 SDK。
-
-## 语言和声音
-
-支持的项目语言代码包括 `en-US`、`en-GB`、`es-ES`、`fr-FR`、`hi-IN`、
-`it-IT`、`ja-JP`、`pt-BR` 和 `zh-CN`。所选声音必须支持项目语言。
-
-列出 Kokoro 提供的所有声音：
-
-```bash
-script2video voices --engine kokoro
-```
-
-## 项目结构
-
-```text
-script2video/
-├── src/script2video/
-│   ├── desktop.py          # 原生应用窗口与浏览器回退
-│   ├── webapp.py           # 本地 API、任务、更新检查和输出操作
-│   ├── web_static/         # Studio HTML、CSS 和 JavaScript
-│   ├── engines/            # Kokoro 与确定性假语音引擎
-│   ├── pipeline.py         # 场景渲染与旁白合成
-│   ├── alignment.py        # 可选的单词级语音对齐
-│   ├── captions.py         # 易读的 SRT 字幕分段
-│   ├── text.py             # 可选择的纯文本场景拆分
-│   ├── srt.py              # SRT 导入、清理和字幕到场景转换
-│   ├── capcut.py           # 视频时长适配与 CapCut 素材包
-│   └── cli.py              # validate、voices、render、capcut、companion
-├── packaging/              # Windows 与 macOS 应用打包配置
-├── scripts/                # Windows 与 macOS 发布构建自动化
-├── examples/               # 文本与 YAML 示例
-├── docs/                   # 设计文档、打包说明和界面截图
-└── tests/                  # 单元测试与回归测试
-```
-
-界面只与本地 API 通信。渲染管线不依赖桌面外壳，因此 Studio 和命令行都可以使用
-同一套旁白与字幕功能。
+将 `narration.wav` 与 `captions.srt` 导入 CapCut，两者都从时间轴零点开始。
+Studio 输出标准文件，不直接修改 CapCut 工程，也不导出完整成片。
 
 ## 开发
 
-只有希望修改源代码的贡献者才需要 Git。克隆仓库并以可编辑模式安装：
-
-```bash
-git clone https://github.com/saslifat-gif/script2video.git
-cd script2video
-python3.11 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e ".[dev,kokoro,alignment]"
-```
-
-在 Windows 上请使用 `.\.venv\Scripts\Activate.ps1` 激活环境，并从 extras 中
-移除 `alignment`。
-
-运行完整测试：
+在 Python 3.11 环境安装 `.[dev,kokoro]` 后运行：
 
 ```bash
 python -m pytest
+node --test tests/studio-ui.test.cjs
 ```
 
-如需在不下载语音模型的情况下快速测试，可将脚本中的引擎覆盖为确定性的假引擎：
-
-```bash
-script2video render examples/demo.yaml \
-  --engine fake \
-  --voice test_narrator \
-  --output builds/demo-fake
-```
-
-假引擎会写入包含短测试音的有效 WAV 文件，因此无需托管 API 或模型下载，也可
-进行端到端测试。
-
-## 文档
-
-- [第一阶段设计](docs/stage-1-design.md)
-- [CapCut 素材包设计](docs/m3-capcut.md)
-- [Windows 应用打包](docs/windows-packaging.md)
-
-## 许可证
-
-本项目按 [`LICENSE`](LICENSE) 中的条款授权。
+测试使用无需下载模型的模拟语音引擎。语言、YAML、命令行说明请参阅
+[英文文档](README.md)。项目授权参阅 [LICENSE](LICENSE)。

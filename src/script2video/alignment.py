@@ -1,37 +1,10 @@
 from __future__ import annotations
 
-import json
 import re
-import subprocess
-import sys
-from collections.abc import Callable
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Protocol
-
-from script2video.errors import AlignmentError
-
-Transcriber = Callable[..., dict[str, Any]]
-
-_LANGUAGES = {
-    "en-US": "en",
-    "en-GB": "en",
-    "es-ES": "es",
-    "fr-FR": "fr",
-    "hi-IN": "hi",
-    "it-IT": "it",
-    "ja-JP": "ja",
-    "pt-BR": "pt",
-    "zh-CN": "zh",
-}
-
-_MODEL_REPOSITORIES = {
-    "tiny.en": "mlx-community/whisper-tiny.en-mlx",
-    "tiny": "mlx-community/whisper-tiny-mlx",
-    "base.en": "mlx-community/whisper-base.en-mlx",
-    "base": "mlx-community/whisper-base-mlx",
-}
 
 
 @dataclass(frozen=True)
@@ -47,105 +20,6 @@ class WordAligner(Protocol):
     ) -> list[AlignedWord]: ...
 
     def identity(self) -> dict[str, str]: ...
-
-
-class MLXWhisperAligner:
-    """Timestamp speech with MLX Whisper and reconcile it to the exact script."""
-
-    def __init__(
-        self,
-        model_name: str = "tiny.en",
-        transcriber: Transcriber | None = None,
-    ) -> None:
-        self.model_name = model_name
-        self._transcriber = transcriber
-
-    def identity(self) -> dict[str, str]:
-        return {
-            "engine": "mlx-whisper",
-            "backend": "apple-silicon",
-            "model": self.model_name,
-        }
-
-    def align(self, audio_path: Path, text: str, language: str) -> list[AlignedWord]:
-        language_code = _LANGUAGES.get(language)
-        if language_code is None:
-            raise AlignmentError(
-                f"MLX Whisper does not recognize project language '{language}'."
-            )
-        if language_code != "en" and self.model_name.endswith(".en"):
-            raise AlignmentError(
-                f"Alignment model '{self.model_name}' is English-only. "
-                "Use a multilingual model such as 'tiny'."
-            )
-        repository = _MODEL_REPOSITORIES.get(self.model_name, self.model_name)
-        try:
-            if self._transcriber is None:
-                recognized = self._align_in_isolated_worker(
-                    audio_path, text, language_code, repository
-                )
-            else:
-                result = self._transcriber(
-                    str(audio_path),
-                    path_or_hf_repo=repository,
-                    language=language_code,
-                    initial_prompt=text,
-                    word_timestamps=True,
-                    verbose=None,
-                )
-                recognized = _extract_words(result)
-        except Exception as exc:
-            raise AlignmentError(f"MLX Whisper alignment failed: {exc}") from exc
-
-        if not recognized:
-            raise AlignmentError("MLX Whisper returned no word timestamps")
-        return reconcile_script_words(text, recognized)
-
-    def _align_in_isolated_worker(
-        self, audio_path: Path, text: str, language: str, repository: str
-    ) -> list[AlignedWord]:
-        try:
-            completed = subprocess.run(
-                [sys.executable, "-m", "script2video.alignment_worker"],
-                input=json.dumps(
-                    {
-                        "audio_path": str(audio_path.resolve()),
-                        "text": text,
-                        "language": language,
-                        "repository": repository,
-                    }
-                ),
-                text=True,
-                capture_output=True,
-                check=False,
-            )
-        except OSError as exc:
-            raise AlignmentError(
-                f"Could not start isolated MLX Whisper worker: {exc}"
-            ) from exc
-        if completed.returncode != 0:
-            detail = completed.stderr.strip().splitlines()
-            message = detail[-1] if detail else "worker exited without an error message"
-            if "No module named 'mlx_whisper'" in completed.stderr:
-                message = (
-                    "AI word alignment is not installed. Install it with: "
-                    "pip install -e '.[alignment]'"
-                )
-            raise AlignmentError(f"Isolated MLX Whisper worker failed: {message}")
-        try:
-            payload = json.loads(completed.stdout)
-            return [
-                AlignedWord(
-                    str(word["text"]),
-                    float(word["start_seconds"]),
-                    float(word["end_seconds"]),
-                )
-                for word in payload["words"]
-            ]
-        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
-            raise AlignmentError(
-                "MLX Whisper worker returned invalid timing data"
-            ) from exc
 
 
 def reconcile_script_words(
@@ -228,7 +102,3 @@ def _extract_words(result: Any) -> list[AlignedWord]:
                 words.append(AlignedWord(text, start_value, end_value))
     words.sort(key=lambda item: (item.start_seconds, item.end_seconds))
     return words
-
-
-# Compatibility for code written during the M3 preview.
-StableTSAligner = MLXWhisperAligner

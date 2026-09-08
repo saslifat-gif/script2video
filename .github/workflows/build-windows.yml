@@ -80,5 +80,5 @@ jobs:
             "release/Script2Video-Studio-$APP_VERSION-Windows-x64.exe#Windows x64 installer" \
             --repo "$GITHUB_REPOSITORY" \
             --title "Script2Video Studio $GITHUB_REF_NAME" \
-            --notes "Windows-first desktop release with local Kokoro narration, multilingual voices, exact subtitle timing, and CapCut-ready output. macOS remains supported from source; unsigned DMG files are no longer attached to public releases." \
+            --notes "Windows-first desktop release with local Kokoro narration, multilingual voices, exact subtitle timing, and CapCut-ready output. Docker provides the browser-based deployment." \
             --verify-tag

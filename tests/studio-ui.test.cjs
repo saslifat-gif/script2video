@@ -60,3 +60,22 @@ test('mutating requests send the bootstrapped token along with JSON', async () =
   assert.equal(sent.options.method, 'POST');
   assert.equal(JSON.parse(sent.options.body).path, '/output');
 });
+
+test('Docker shows mounted-path guidance and hides desktop-only actions', async () => {
+  const { context, nodes } = studio();
+  context.fetch = async () => ({ ok: true, json: async () => ({
+    version: 'test', container_mode: true, desktop_actions: false,
+    default_output: '/data/output', default_script: '',
+  }) });
+  vm.runInContext(`populateLanguages = () => {};
+    loadTextVoices = async () => {};
+    checkForUpdates = () => {};`, context);
+  await vm.runInContext('initialize()', context);
+  assert.equal(nodes.get('#container-help').hidden, false);
+  assert.equal(nodes.get('#output-path').value, '/data/output');
+  assert.equal(nodes.get('#video-path').placeholder, '/data/input/video.mp4');
+  for (const id of ['#choose-script', '#choose-video', '#choose-output',
+    '#open-output', '#open-capcut', '#quit-studio']) {
+    assert.equal(nodes.get(id).hidden, true, id);
+  }
+});

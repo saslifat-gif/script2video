@@ -224,16 +224,7 @@
                   <input id="fit-toggle" type="checkbox" checked disabled />
                   <span class="toggle" aria-hidden="true"></span>
                 </label>
-                <label class="setting">
-                  <span>
-                    <strong>AI caption alignment</strong>
-                    <small id="alignment-description">
-                      Match subtitle changes to spoken words.
-                    </small>
-                  </span>
-                  <input id="align-toggle" type="checkbox" checked disabled />
-                  <span class="toggle" aria-hidden="true"></span>
-                </label>
+                <p>Subtitles follow the measured speech timing.</p>
               </div>
             </section>
 
@@ -247,6 +238,7 @@
                 <span class="step-state neutral">WAV · SRT · JSON</span>
               </div>
 
+              <p id="container-help" hidden>Use /data/input for source files. Generated files appear in your computer’s data/output folder.</p>
               <label class="field-label" for="output-path">Workspace folder</label>
               <div class="path-control">
                 <input

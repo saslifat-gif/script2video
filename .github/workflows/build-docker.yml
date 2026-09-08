@@ -1,0 +1,28 @@
+name: Build Docker application
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - Dockerfile
+      - compose.yaml
+      - .dockerignore
+      - .github/workflows/build-docker.yml
+      - src/**
+      - scripts/docker-smoke.py
+      - pyproject.toml
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate Compose
+        run: docker compose config --quiet
+      - name: Build CPU image
+        run: docker build -t script2video:ci .
+      - name: Verify container startup and generation
+        run: docker run --rm --entrypoint python -v "$PWD/scripts/docker-smoke.py:/tmp/smoke.py:ro" script2video:ci /tmp/smoke.py

@@ -31,8 +31,6 @@ const elements = {
   previewVoiceOverview: document.querySelector("#preview-voice-overview"),
   voicePreviewPlayer: document.querySelector("#voice-preview-player"),
   fitToggle: document.querySelector("#fit-toggle"),
-  alignToggle: document.querySelector("#align-toggle"),
-  alignmentDescription: document.querySelector("#alignment-description"),
   generate: document.querySelector("#generate"),
   generateLabel: document.querySelector("#generate-label"),
   projectTitle: document.querySelector("#project-title"),
@@ -98,8 +96,19 @@ async function initialize() {
     elements.version.textContent = `v${state.bootstrap.version}`;
     elements.outputPath.value = state.bootstrap.default_output;
     elements.scriptPath.value = state.bootstrap.default_script;
+    if (!state.bootstrap.desktop_actions) {
+      for (const button of [elements.chooseScript, elements.chooseVideo,
+        elements.chooseOutput, elements.openOutput, elements.openCapCut]) {
+        button.hidden = true;
+      }
+    }
+    if (state.bootstrap.container_mode) {
+      elements.scriptPath.placeholder = "/data/input/script.yaml";
+      elements.videoPath.placeholder = "/data/input/video.mp4";
+      document.querySelector("#container-help").hidden = false;
+      elements.quitStudio.hidden = true;
+    }
     populateLanguages();
-    configureAlignment();
     await loadTextVoices();
     checkForUpdates(false);
   } catch (error) {
@@ -171,15 +180,6 @@ async function loadTextVoices() {
     }
   }
   updateInterface();
-}
-
-function configureAlignment() {
-  const available = state.bootstrap?.alignment_available;
-  elements.alignToggle.checked = Boolean(available);
-  if (!available) {
-    elements.alignmentDescription.textContent =
-      "Exact block timing is used on Windows and Intel Macs.";
-  }
 }
 
 async function choose(kind) {
@@ -338,6 +338,18 @@ function setSourceMode(mode) {
   elements.yamlSource.hidden = !yamlActive;
   elements.successPanel.hidden = true;
   if (textActive) {
+    if (!state.bootstrap.desktop_actions) {
+      for (const button of [elements.chooseScript, elements.chooseVideo,
+        elements.chooseOutput, elements.openOutput, elements.openCapCut]) {
+        button.hidden = true;
+      }
+    }
+    if (state.bootstrap.container_mode) {
+      elements.scriptPath.placeholder = "/data/input/script.yaml";
+      elements.videoPath.placeholder = "/data/input/video.mp4";
+      document.querySelector("#container-help").hidden = false;
+      elements.quitStudio.hidden = true;
+    }
     populateLanguages();
     loadTextVoices();
   } else if (state.script) {
@@ -350,6 +362,18 @@ function setSourceMode(mode) {
   } else {
     state.voiceRequest += 1;
     state.voicesLoading = false;
+    if (!state.bootstrap.desktop_actions) {
+      for (const button of [elements.chooseScript, elements.chooseVideo,
+        elements.chooseOutput, elements.openOutput, elements.openCapCut]) {
+        button.hidden = true;
+      }
+    }
+    if (state.bootstrap.container_mode) {
+      elements.scriptPath.placeholder = "/data/input/script.yaml";
+      elements.videoPath.placeholder = "/data/input/video.mp4";
+      document.querySelector("#container-help").hidden = false;
+      elements.quitStudio.hidden = true;
+    }
     populateLanguages();
     elements.voiceSelect.replaceChildren(
       new Option("Choose a YAML script first", ""),
@@ -599,10 +623,6 @@ function updateInterface() {
     elements.voiceMessage.textContent = "Choose a language to load voices.";
   }
   elements.fitToggle.disabled = !state.video || state.generating;
-  elements.alignToggle.disabled =
-    !state.video ||
-    !state.bootstrap?.alignment_available ||
-    state.generating;
   elements.generate.disabled = !ready;
   elements.generateLabel.textContent = state.video
     ? "Generate CapCut package"
@@ -692,7 +712,6 @@ async function generate() {
         voice: elements.voiceSelect.value,
         split_mode: elements.sceneSplitSelect.value,
         fit: elements.fitToggle.checked,
-        align: elements.alignToggle.checked,
       }),
     });
     pollJob(job.id);
@@ -731,7 +750,7 @@ function finishSuccessfully(job) {
     ? "Files saved — review timing" : "Your files are ready";
   elements.successWarning.textContent = warnings.join(" ");
   elements.successWarning.hidden = warnings.length === 0;
-  elements.openCapCut.hidden = !state.video;
+  elements.openCapCut.hidden = !state.video || !state.bootstrap?.desktop_actions;
   elements.previewPanel.classList.remove("running");
   updateInterface();
   setStatus(
@@ -767,9 +786,7 @@ async function checkForUpdates(manual) {
         `Script2Video Studio v${result.latest_version} is available`;
       elements.updateCopy.textContent = result.platform_asset
         ? `You are using v${result.current_version}. Download the installer for this computer.`
-        : state.bootstrap.platform === "darwin"
-          ? `You are using v${result.current_version}. Mac is supported from source; public installers are Windows-only.`
-          : `You are using v${result.current_version}. View the available downloads.`;
+        : `You are using v${result.current_version}. View the available downloads.`;
       elements.updateBanner.hidden = false;
       elements.checkUpdates.textContent = "Update available";
     } else if (manual && result.checked) {
@@ -792,6 +809,10 @@ async function checkForUpdates(manual) {
 }
 
 async function viewUpdate() {
+  if (state.bootstrap.container_mode) {
+    window.open(state.bootstrap.releases_url, "_blank", "noopener,noreferrer");
+    return;
+  }
   const url = state.update?.download_url || state.bootstrap.releases_url;
   await openAction("/api/open-url", { url });
 }

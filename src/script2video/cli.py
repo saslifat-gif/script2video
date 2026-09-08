@@ -5,7 +5,6 @@ from typing import Annotated, NoReturn
 
 import typer
 
-from script2video.alignment import MLXWhisperAligner
 from script2video.capcut import create_capcut_package
 from script2video.config import load_project
 from script2video.engines.base import TTSEngine
@@ -133,28 +132,19 @@ def capcut_package(
     fit: Annotated[
         bool, typer.Option("--fit/--no-fit", help="Fit narration to video duration.")
     ] = True,
-    align: Annotated[
-        bool,
-        typer.Option(
-            "--align/--no-align", help="AI-align the known script at word level."
-        ),
-    ] = True,
-    align_model: Annotated[
-        str | None, typer.Option("--align-model", help="MLX Whisper model name.")
-    ] = None,
+    align: Annotated[bool, typer.Option("--align/--no-align", hidden=True)] = False,
 ) -> None:
     """Create narration, editable SRT captions, and metadata for CapCut."""
     try:
+        if align:
+            raise Script2VideoError(
+                "Built-in AI alignment is unavailable; "
+                "omit --align to use measured timing"
+            )
         project = load_project(script)
         if voice is not None:
             project = project.model_copy(update={"voice": voice})
         selected = get_engine(engine or project.engine)
-        default_model = "tiny.en" if project.language.startswith("en") else "tiny"
-        aligner = (
-            MLXWhisperAligner(model_name=align_model or default_model)
-            if align
-            else None
-        )
         manifest = create_capcut_package(
             project,
             script,
@@ -162,7 +152,7 @@ def capcut_package(
             output,
             selected,
             fit_to_video=fit,
-            aligner=aligner,
+            aligner=None,
         )
     except Script2VideoError as exc:
         _fail(exc, code=5)
@@ -178,9 +168,12 @@ def capcut_package(
 @app.command()
 def companion() -> None:
     """Open Script2Video Studio in the default browser."""
-    from script2video.webapp import run_web_app
+    from script2video.webapp import _CONTAINER_MODE, run_web_app
 
-    run_web_app()
+    run_web_app(
+        host="0.0.0.0" if _CONTAINER_MODE else "127.0.0.1",
+        open_browser=not _CONTAINER_MODE,
+    )
 
 
 @app.command("classic-companion", hidden=True)
