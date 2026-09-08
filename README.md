@@ -289,7 +289,8 @@ Everything runs through a local server bound to `127.0.0.1`. The desktop
 launcher embeds that UI with pywebview and Windows Edge WebView2. If the native
 webview is unavailable, Script2Video opens the same local workspace in the
 default browser. Generation jobs run in the background so the interface can
-continue reporting progress.
+continue reporting progress. The local server validates the request host and
+origin. Actions require a per-session token supplied automatically by Studio.
 
 ## Script format
 
@@ -344,7 +345,12 @@ By default, the command:
 The fitter rejects speeds outside `0.50`–`2.00` to keep narration
 understandable. Use `--no-fit` to preserve script speeds, `--no-align` for the
 exact-block timing fallback, or `--align-model base.en` for a larger English
-alignment model.
+alignment model. By default, alignment uses `tiny.en` for English and the
+multilingual `tiny` model for other languages.
+
+If fitting cannot reach the video duration within three attempts, the package
+is still saved, but Studio and the command line warn you to review its timing.
+The same warning is stored in `manifest.json`.
 
 To use the package in CapCut Desktop:
 
@@ -426,6 +432,12 @@ Run the complete test suite:
 
 ```bash
 python -m pytest
+```
+
+Run the JavaScript request and completion-panel regression tests with Node.js:
+
+```bash
+node --test tests/studio-ui.test.cjs
 ```
 
 For quick testing without downloading speech models, override the script's

@@ -1704,3 +1704,10 @@ footer {
   margin: 0 auto;
   text-align: center;
 }
+
+#success-warning {
+  color: #7a4800;
+  background: #fff4d6;
+  border-radius: 8px;
+  padding: 10px 12px;
+}

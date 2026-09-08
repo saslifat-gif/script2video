@@ -140,8 +140,8 @@ def capcut_package(
         ),
     ] = True,
     align_model: Annotated[
-        str, typer.Option("--align-model", help="MLX Whisper model name.")
-    ] = "tiny.en",
+        str | None, typer.Option("--align-model", help="MLX Whisper model name.")
+    ] = None,
 ) -> None:
     """Create narration, editable SRT captions, and metadata for CapCut."""
     try:
@@ -149,7 +149,12 @@ def capcut_package(
         if voice is not None:
             project = project.model_copy(update={"voice": voice})
         selected = get_engine(engine or project.engine)
-        aligner = MLXWhisperAligner(model_name=align_model) if align else None
+        default_model = "tiny.en" if project.language.startswith("en") else "tiny"
+        aligner = (
+            MLXWhisperAligner(model_name=align_model or default_model)
+            if align
+            else None
+        )
         manifest = create_capcut_package(
             project,
             script,
@@ -162,6 +167,8 @@ def capcut_package(
     except Script2VideoError as exc:
         _fail(exc, code=5)
     capcut = manifest["capcut"]
+    for warning in manifest.get("warnings", []):
+        typer.echo(f"Warning: {warning}", err=True)
     typer.echo(
         f"Created CapCut package in {output}: narration.wav + captions.srt "
         f"({capcut['fit']['final_narration_duration_ms']} ms)"

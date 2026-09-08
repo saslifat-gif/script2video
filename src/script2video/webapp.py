@@ -5,6 +5,7 @@ import json
 import mimetypes
 import os
 import re
+import secrets
 import subprocess
 import sys
 import threading
@@ -66,12 +67,14 @@ class GenerationJob:
     output: str | None = None
     files: list[str] = field(default_factory=list)
     error: str | None = None
+    warnings: list[str] = field(default_factory=list)
 
 
 class WebState:
     def __init__(self, shutdown_callback: Callable[[], None] | None = None) -> None:
         self.jobs: dict[str, GenerationJob] = {}
         self.lock = threading.Lock()
+        self.csrf_token = secrets.token_urlsafe(32)
         self.shutdown_callback = shutdown_callback
 
     def create_job(self) -> GenerationJob:
@@ -120,9 +123,13 @@ class _WebRequestHandler(BaseHTTPRequestHandler):
     web_state: WebState
 
     def do_GET(self) -> None:  # noqa: N802
+        if not self._trusted_request():
+            return
         path = urlparse(self.path).path
         if path == "/api/bootstrap":
-            self._send_json(_bootstrap_payload())
+            self._send_json(
+                {**_bootstrap_payload(), "csrf_token": self.web_state.csrf_token}
+            )
             return
         if path == "/api/update":
             self._send_json(_update_payload())
@@ -138,6 +145,20 @@ class _WebRequestHandler(BaseHTTPRequestHandler):
         self._serve_static(path)
 
     def do_POST(self) -> None:  # noqa: N802
+        if not self._trusted_request():
+            return
+        token = self.headers.get("X-Studio-Token", "")
+        if not secrets.compare_digest(
+            token.encode("utf-8"), self.web_state.csrf_token.encode("utf-8")
+        ):
+            self._send_error(HTTPStatus.FORBIDDEN, "Invalid Studio session token")
+            return
+        content_type = self.headers.get("Content-Type", "").split(";", 1)[0]
+        if content_type.strip().lower() != "application/json":
+            self._send_error(
+                HTTPStatus.UNSUPPORTED_MEDIA_TYPE, "Request must use application/json"
+            )
+            return
         path = urlparse(self.path).path
         try:
             payload = self._read_json()
@@ -174,6 +195,22 @@ class _WebRequestHandler(BaseHTTPRequestHandler):
                 HTTPStatus.INTERNAL_SERVER_ERROR,
                 f"Unexpected application error: {exc}",
             )
+
+    def _trusted_request(self) -> bool:
+        # Validate Host before exposing the bootstrap token: loopback binding
+        # alone does not prevent a DNS-rebinding site from reaching this server.
+        port = self.server.server_address[1]
+        authorities = {f"127.0.0.1:{port}", f"localhost:{port}"}
+        host = self.headers.get("Host", "").lower()
+        origin = self.headers.get("Origin")
+        if (
+            host not in authorities
+            or (origin is not None and origin.lower() != f"http://{host}")
+            or self.headers.get("Sec-Fetch-Site") == "cross-site"
+        ):
+            self._send_error(HTTPStatus.FORBIDDEN, "Untrusted Studio request")
+            return False
+        return True
 
     def log_message(self, format: str, *args: object) -> None:
         if self.path.startswith("/api/"):
@@ -651,12 +688,13 @@ def _render_generation(
     else:
         job.message = "Matching narration and captions to the video"
         use_alignment = bool(options.get("align", True))
+        default_model = "tiny.en" if project.language.startswith("en") else "tiny"
         aligner = (
-            MLXWhisperAligner(str(options.get("align_model", "tiny.en")))
+            MLXWhisperAligner(str(options.get("align_model", default_model)))
             if use_alignment and _AI_ALIGNMENT_AVAILABLE
             else None
         )
-        create_capcut_package(
+        manifest = create_capcut_package(
             project,
             input_path,
             video_path,
@@ -666,7 +704,7 @@ def _render_generation(
             aligner=aligner,
         )
 
-    job.status = "complete"
+    job.warnings = list(manifest.get("warnings", []))
     job.message = (
         "CapCut package is ready"
         if video_path is not None
@@ -674,6 +712,7 @@ def _render_generation(
     )
     job.output = str(output_path)
     job.files = sorted(path.name for path in output_path.iterdir() if path.is_file())
+    job.status = "complete"
 
 
 def _fail_job(job: GenerationJob, error: Exception) -> None:
