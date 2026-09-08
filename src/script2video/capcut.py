@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from typing import Any
 
-from script2video.alignment import WordAligner
+from script2video.alignment import AlignedWord, WordAligner
 from script2video.captions import (
     build_srt,
     build_word_aligned_srt,
@@ -12,7 +13,7 @@ from script2video.captions import (
 )
 from script2video.config import ProjectConfig
 from script2video.engines.base import TTSEngine
-from script2video.errors import PackageError
+from script2video.errors import AlignmentError, PackageError
 from script2video.manifest import write_manifest
 from script2video.pipeline import render_project
 from script2video.video import probe_video
@@ -87,15 +88,32 @@ def create_capcut_package(
         srt = build_srt(fitted_project, manifest)
     else:
         transcript = " ".join(scene.text for scene in fitted_project.scenes)
-        aligned_words = aligner.align(
-            output_dir / "narration.wav", transcript, fitted_project.language
-        )
-        srt = build_word_aligned_srt(aligned_words)
-        alignment_metadata = {
-            "enabled": True,
-            **aligner.identity(),
-            "word_count": len(aligned_words),
-        }
+        try:
+            aligned_words = aligner.align(
+                output_dir / "narration.wav", transcript, fitted_project.language
+            )
+            if not _alignment_matches_segments(aligned_words, manifest):
+                raise AlignmentError(
+                    "AI timestamps disagree with the measured narration segments"
+                )
+            srt = build_word_aligned_srt(aligned_words)
+            alignment_metadata = {
+                "enabled": True,
+                **aligner.identity(),
+                "word_count": len(aligned_words),
+            }
+        except AlignmentError as exc:
+            srt = build_srt(fitted_project, manifest)
+            alignment_metadata = {
+                "enabled": False,
+                "requested": True,
+                **aligner.identity(),
+                "fallback_reason": str(exc),
+            }
+            manifest["warnings"].append(
+                "AI alignment could not provide reliable timing. "
+                "Captions use the measured narration segments instead."
+            )
     write_srt(output_dir / srt_name, srt)
     manifest["capcut"] = {
         "video_file": str(video.path),
@@ -142,3 +160,40 @@ def _fit_correction(manifest: dict[str, Any], target_seconds: float) -> float:
             "The configured scene pauses are longer than the selected video."
         )
     return current_speech_samples / target_speech_samples
+
+
+def _alignment_matches_segments(
+    words: list[AlignedWord], manifest: dict[str, Any]
+) -> bool:
+    """Reject global transcript drift using independently rendered audio anchors."""
+    sample_rate = int(manifest["audio"]["sample_rate"])
+    duration = int(manifest["audio"]["duration_samples"]) / sample_rate
+    previous_end = 0.0
+    for word in words:
+        if (
+            not math.isfinite(word.start_seconds)
+            or not math.isfinite(word.end_seconds)
+            or word.start_seconds < previous_end
+            or word.end_seconds <= word.start_seconds
+            or word.end_seconds > duration
+        ):
+            return False
+        previous_end = word.end_seconds
+    cursor = 0
+    for scene in manifest["scenes"]:
+        for segment in scene["segments"]:
+            count = len(str(segment["text"]).split())
+            group = words[cursor : cursor + count]
+            if len(group) != count or not group:
+                return False
+            start = int(segment.get("audible_start_sample", segment["start_sample"]))
+            end = int(segment.get("audible_end_sample", segment["end_sample"]))
+            # Small boundary differences are expected from speech recognition;
+            # crossing an independently measured segment by >150 ms is not.
+            if (
+                abs(group[0].start_seconds - start / sample_rate) > 0.150
+                or abs(group[-1].end_seconds - end / sample_rate) > 0.150
+            ):
+                return False
+            cursor += count
+    return cursor == len(words) and cursor > 0
