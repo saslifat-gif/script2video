@@ -9,6 +9,7 @@
     />
     <title>Script2Video Studio</title>
     <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="/studio-theme.css" />
   </head>
   <body>
     <div class="app-shell">
@@ -46,29 +47,13 @@
           </div>
         </section>
 
-        <section class="hero" aria-labelledby="page-title">
-          <div>
-            <p class="eyebrow">Voice and caption workspace</p>
-            <h1 id="page-title">Turn your script into a finished voice track.</h1>
-            <p class="hero-copy">
-              Generate natural narration, match it to your video, and export
-              editable subtitles—all on your computer.
-            </p>
-          </div>
-          <div class="hero-badges" aria-label="Product capabilities">
-            <span>Kokoro voice</span>
-            <span>Exact script text</span>
-            <span>CapCut ready</span>
-          </div>
-        </section>
-
         <section class="workspace-grid">
           <div class="flow-panel">
             <section class="step-card" aria-labelledby="source-title">
               <div class="step-heading">
                 <span class="step-number">01</span>
                 <div>
-                  <h2 id="source-title">Source</h2>
+                  <h2 id="source-title">Script</h2>
                   <p>Paste a complete script or use reusable YAML.</p>
                 </div>
                 <span class="step-state" id="script-state">Required</span>
@@ -103,7 +88,7 @@
                   id="narration-text"
                   rows="8"
                   spellcheck="true"
-                  placeholder="Paste your complete script here. Studio keeps the voice natural and creates short timed subtitle cards."
+                  placeholder="Write or paste your script…"
                 ></textarea>
                 <div class="field-message-row">
                   <p class="field-message" id="text-message">

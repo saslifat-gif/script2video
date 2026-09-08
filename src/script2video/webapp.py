@@ -294,6 +294,7 @@ class _WebRequestHandler(BaseHTTPRequestHandler):
             "/": "index.html",
             "/index.html": "index.html",
             "/app.css": "app.css",
+            "/studio-theme.css": "studio-theme.css",
             "/app.js": "app.js",
         }
         filename = files.get(request_path)
