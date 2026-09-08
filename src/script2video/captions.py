@@ -25,8 +25,10 @@ def build_srt(project: ProjectConfig, manifest: dict[str, Any]) -> str:
                 entries.extend(
                     _timed_caption_entries(
                         str(segment["text"]),
-                        int(segment["start_sample"]),
-                        int(segment["end_sample"]),
+                        int(
+                            segment.get("audible_start_sample", segment["start_sample"])
+                        ),
+                        int(segment.get("audible_end_sample", segment["end_sample"])),
                     )
                 )
             continue

@@ -352,6 +352,13 @@ If fitting cannot reach the video duration within three attempts, the package
 is still saved, but Studio and the command line warn you to review its timing.
 The same warning is stored in `manifest.json`.
 
+Caption boundaries exclude leading and trailing near-silence in each generated
+audio segment, with a small margin to preserve quiet speech. Audio and scene
+positions stay unchanged. AI alignment is checked against these measured
+segments; if its timestamps drift or alignment fails, captions fall back to
+measured segment timing and the package records a warning. Regenerate the
+package to apply these improvements to existing exports.
+
 To use the package in CapCut Desktop:
 
 1. Import `narration.wav` and place it at timeline time zero.

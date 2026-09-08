@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from script2video import __version__
-from script2video.audio import silence, write_wav
+from script2video.audio import audible_bounds, silence, write_wav
 from script2video.config import ProjectConfig
 from script2video.engines.base import (
     AudioChunk,
@@ -70,11 +70,14 @@ def render_project(
                 audio_format.channels * audio_format.sample_width
             )
             segment_end = segment_start + chunk.sample_count
+            audible_start, audible_end = audible_bounds(chunk)
             segment_records.append(
                 {
                     "text": segment_text,
                     "start_sample": segment_start,
                     "end_sample": segment_end,
+                    "audible_start_sample": segment_start + audible_start,
+                    "audible_end_sample": segment_start + audible_end,
                     "start_ms": _samples_to_ms(segment_start, audio_format.sample_rate),
                     "end_ms": _samples_to_ms(segment_end, audio_format.sample_rate),
                 }
