@@ -1711,3 +1711,23 @@ footer {
   border-radius: 8px;
   padding: 10px 12px;
 }
+
+/* Finished files stay next to the player, instead of exposing container paths. */
+.export-panel { margin-top: 24px; padding: 22px; border: 1px solid #cbdcf7;
+  border-radius: 20px; background: #f5f9ff; }
+.export-heading { display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; margin-bottom: 16px; }
+.export-heading h3 { margin: 0; font-size: 21px; letter-spacing: -.02em; }
+.export-duration { color: var(--accent); font-weight: 700; white-space: nowrap; }
+.export-panel audio { display: block; width: 100%; margin: 0 0 18px; }
+.export-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.export-links a { padding: 12px 10px; border: 1px solid #d5e2f6; border-radius: 10px;
+  background: white; color: var(--accent); text-decoration: none; font-size: 13px;
+  font-weight: 650; text-align: center; }
+.export-links a:hover { background: #e8f0fe; border-color: #8eafe3; }
+.export-links a:focus-visible { outline: 3px solid #8eafe3; outline-offset: 2px; }
+.export-hint, .preview-explanation { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.export-location { margin-top: 14px; font-size: 12px; color: var(--muted); }
+.export-location summary { cursor: pointer; }
+.export-location p { overflow-wrap: anywhere; line-height: 1.6; }
+@media (max-width: 420px) { .export-links { grid-template-columns: 1fr; } }

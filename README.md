@@ -28,6 +28,9 @@ The image uses CPU inference and runs as a non-root user.
   their container paths, such as `/data/input/script.yaml` or `/data/input/video.mp4`.
 - Keep the output workspace at `/data/output`. Each generation appears in its own
   dated folder under `data/output` on your computer.
+- Play the full narration under **Your files**, then download the WAV, SRT, or
+  original script directly in your browser. **Preview first sentence** is only
+  a short voice audition.
 - Import the generated WAV and SRT into CapCut on your computer.
 
 The input mount is read-only. Desktop file dialogs, folder launching, and CapCut

@@ -6,6 +6,7 @@ import mimetypes
 import os
 import re
 import secrets
+import shutil
 import subprocess
 import sys
 import threading
@@ -36,6 +37,14 @@ from script2video.srt import load_srt_cues, load_srt_project
 from script2video.text import SceneSplitMode, split_text_scenes
 from script2video.video import probe_video
 
+_EXPORT_FILES = {
+    "narration.wav": "narration.wav",
+    "captions.srt": "captions.srt",
+    "script.txt": "metadata/source.txt",
+    "script.yaml": "metadata/source.yaml",
+    "script.srt": "source.srt",
+    "manifest.json": "manifest.json",
+}
 _STATIC_ROOT = Path(__file__).with_name("web_static")
 _CONTAINER_MODE = os.environ.get("SCRIPT2VIDEO_CONTAINER") == "1"
 _MAX_REQUEST_BYTES = 1_000_000
@@ -66,6 +75,8 @@ class GenerationJob:
     files: list[str] = field(default_factory=list)
     error: str | None = None
     warnings: list[str] = field(default_factory=list)
+    duration_ms: float = 0
+    downloads: dict[str, str] = field(default_factory=dict)
 
 
 class WebState:
@@ -134,6 +145,10 @@ class _WebRequestHandler(BaseHTTPRequestHandler):
             return
         if path.startswith("/api/jobs/"):
             job_id = path.removeprefix("/api/jobs/")
+            if "/files/" in job_id:
+                job_id, filename = job_id.split("/files/", 1)
+                self._serve_export(job_id, filename)
+                return
             job = self.web_state.get_job(job_id)
             if job is None:
                 self._send_error(HTTPStatus.NOT_FOUND, "Generation job not found")
@@ -141,6 +156,66 @@ class _WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json(asdict(job))
             return
         self._serve_static(path)
+
+    def do_HEAD(self) -> None:  # noqa: N802
+        self.do_GET()
+
+    def _serve_export(self, job_id: str, filename: str) -> None:
+        job = self.web_state.get_job(job_id)
+        relative = _EXPORT_FILES.get(filename)
+        if job is None or job.status != "complete" or not job.output or not relative:
+            self._send_error(HTTPStatus.NOT_FOUND, "Export not found")
+            return
+        root = Path(job.output).resolve()
+        path = (root / relative).resolve()
+        if not path.is_relative_to(root) or not path.is_file():
+            self._send_error(HTTPStatus.NOT_FOUND, "Export not found")
+            return
+        size = path.stat().st_size
+        start, end = 0, size - 1
+        status = HTTPStatus.OK
+        byte_range = self.headers.get("Range")
+        if byte_range:
+            match = re.fullmatch(r"bytes=(\d*)-(\d*)", byte_range)
+            valid = match is not None and bool(match[1] or match[2])
+            if valid:
+                if match[1]:
+                    start = int(match[1])
+                    end = min(int(match[2]), size - 1) if match[2] else size - 1
+                else:
+                    start = max(0, size - int(match[2]))
+                valid = 0 <= start <= end < size
+            if not valid:
+                self.send_response(HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
+                self.send_header("Content-Range", f"bytes */{size}")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            status = HTTPStatus.PARTIAL_CONTENT
+        self.send_response(status)
+        self.send_header(
+            "Content-Type",
+            "audio/wav" if filename.endswith(".wav") else "text/plain; charset=utf-8",
+        )
+        self.send_header("Content-Length", str(max(0, end - start + 1)))
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Content-Disposition", f'inline; filename="{filename}"')
+        if status == HTTPStatus.PARTIAL_CONTENT:
+            self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        self.end_headers()
+        if self.command == "HEAD":
+            return
+        with path.open("rb") as source:
+            source.seek(start)
+            remaining = end - start + 1
+            while remaining > 0:
+                block = source.read(min(65536, remaining))
+                if not block:
+                    break
+                self.wfile.write(block)
+                remaining -= len(block)
 
     def do_POST(self) -> None:  # noqa: N802
         if not self._trusted_request():
@@ -236,7 +311,8 @@ class _WebRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(content)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
-        self.wfile.write(content)
+        if self.command != "HEAD":
+            self.wfile.write(content)
 
     def _read_json(self) -> dict[str, Any]:
         length = int(self.headers.get("Content-Length", "0"))
@@ -314,9 +390,7 @@ class _WebRequestHandler(BaseHTTPRequestHandler):
             raise ValueError(
                 f"No {engine_name} voices are available for language '{language}'"
             )
-        self._send_json(
-            {"engine": engine_name, "language": language, "voices": voices}
-        )
+        self._send_json({"engine": engine_name, "language": language, "voices": voices})
 
     def _preview_voice(self, payload: dict[str, Any]) -> None:
         engine_name = str(payload.get("engine", "kokoro")).strip()
@@ -431,7 +505,8 @@ class _WebRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(content)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
-        self.wfile.write(content)
+        if self.command != "HEAD":
+            self.wfile.write(content)
 
     def _send_error(self, status: HTTPStatus, message: str) -> None:
         self._send_json({"error": message}, status=status)
@@ -494,8 +569,7 @@ def _update_payload() -> dict[str, Any]:
                 break
         return {
             "checked": True,
-            "available": _version_tuple(latest_version)
-            > _version_tuple(__version__),
+            "available": _version_tuple(latest_version) > _version_tuple(__version__),
             "current_version": __version__,
             "latest_version": latest_version,
             "release_url": release_url,
@@ -672,6 +746,11 @@ def _render_generation(
     options: dict[str, Any],
     engine: FakeEngine | KokoroEngine,
 ) -> None:
+    if input_path.suffix.lower() in {".yaml", ".yml"}:
+        saved_script = output_path / "metadata" / "source.yaml"
+        saved_script.parent.mkdir(parents=True, exist_ok=True)
+        if input_path.resolve() != saved_script.resolve():
+            shutil.copyfile(input_path, saved_script)
     if video_path is None:
         job.message = "Rendering narration scene by scene"
         # Render each readable caption card separately so its manifest boundary is
@@ -707,6 +786,12 @@ def _render_generation(
     )
     job.output = str(output_path)
     job.files = sorted(path.name for path in output_path.iterdir() if path.is_file())
+    job.duration_ms = float(manifest["audio"]["duration_ms"])
+    job.downloads = {
+        name: f"/api/jobs/{job.id}/files/{name}"
+        for name, relative in _EXPORT_FILES.items()
+        if (output_path / relative).is_file()
+    }
     job.status = "complete"
 
 

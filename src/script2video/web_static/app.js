@@ -48,6 +48,12 @@ const elements = {
   jobMessage: document.querySelector("#job-message"),
   successPanel: document.querySelector("#success-panel"),
   successTitle: document.querySelector("#success-title"),
+  exportPanel: document.querySelector("#export-panel"),
+  exportLinks: document.querySelector("#export-links"),
+  exportLocation: document.querySelector("#export-location"),
+  fullNarration: document.querySelector("#full-narration"),
+  overviewPlayLabel: document.querySelector("#overview-play-label"),
+  fullDuration: document.querySelector("#full-duration"),
   successCopy: document.querySelector("#success-copy"),
   successWarning: document.querySelector("#success-warning"),
   openOutput: document.querySelector("#open-output"),
@@ -59,6 +65,7 @@ const elements = {
 
 const state = {
   bootstrap: null,
+  completedJob: null,
   sourceMode: "text",
   script: null,
   textVoices: [],
@@ -314,12 +321,12 @@ async function previewVoice() {
     elements.voicePreviewPlayer.hidden = false;
     await elements.voicePreviewPlayer.play().catch(() => {});
     state.voicePreviewMessage =
-      `Playing ${result.voice} · ${formatDuration(result.duration_ms / 1000)}`;
+      `First-sentence preview · ${formatDuration(result.duration_ms / 1000)} · Full audio is generated separately`;
   } catch (error) {
     showToast(error.message);
   } finally {
     state.previewingVoice = false;
-    elements.previewVoice.textContent = "▶ Try voice";
+    elements.previewVoice.textContent = "▶ Preview first sentence";
     updateInterface();
   }
 }
@@ -597,7 +604,8 @@ function updateInterface() {
     state.voicesLoading ||
     state.generating ||
     state.previewingVoice;
-  elements.previewVoiceOverview.disabled = elements.previewVoice.disabled;
+  elements.previewVoiceOverview.disabled = state.completedJob
+    ? false : elements.previewVoice.disabled;
   if (state.voicePreviewMessage) {
     elements.voiceMessage.className = "field-message success";
     elements.voiceMessage.textContent = state.voicePreviewMessage;
@@ -670,7 +678,9 @@ function updateInterface() {
     elements.summaryLanguage.textContent =
       state.sourceMode !== "yaml" ? elements.languageSelect.value || "—" : "—";
   }
-  elements.duration.textContent = state.video
+  elements.duration.textContent = state.completedJob
+    ? formatDuration(state.completedJob.duration_ms / 1000)
+    : state.video
     ? formatDuration(state.video.duration_seconds)
     : "--:--";
 
@@ -741,10 +751,12 @@ async function pollJob(jobId) {
 function finishSuccessfully(job) {
   state.generating = false;
   state.output = job.output;
+  state.completedJob = job;
+  renderExports(job);
   elements.jobPanel.hidden = true;
   elements.successPanel.hidden = false;
   elements.successCopy.textContent =
-    `${job.files.length} files saved to ${job.output}`;
+    "Your complete audio and subtitles are ready to download above.";
   const warnings = job.warnings || [];
   elements.successTitle.textContent = warnings.length
     ? "Files saved — review timing" : "Your files are ready";
@@ -758,6 +770,32 @@ function finishSuccessfully(job) {
     warnings.length ? "" : "ready",
     warnings.length ? "Your files need a timing review" : "Your files are ready",
   );
+}
+
+function renderExports(job) {
+  const downloads = job.downloads || {};
+  elements.exportPanel.hidden = !downloads["narration.wav"];
+  elements.fullNarration.src = downloads["narration.wav"] || "";
+  elements.fullDuration.textContent = formatDuration((job.duration_ms || 0) / 1000);
+  elements.exportLinks.replaceChildren();
+  const labels = {
+    "narration.wav": "↓ Audio · WAV", "captions.srt": "↓ Subtitles · SRT",
+    "script.txt": "↓ Script · TXT", "script.yaml": "↓ Script · YAML",
+    "script.srt": "↓ Original script · SRT", "manifest.json": "↓ Timing · JSON",
+  };
+  for (const [name, url] of Object.entries(downloads)) {
+    if (!labels[name]) continue;
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = name;
+    link.textContent = labels[name];
+    elements.exportLinks.append(link);
+  }
+  elements.exportLocation.textContent = state.bootstrap?.container_mode
+    ? `Saved in your computer’s data/output folder, in ${job.output.split("/").pop()}.`
+    : job.output;
+  elements.previewVoiceOverview.setAttribute("aria-label", "Play full narration");
+  elements.overviewPlayLabel.textContent = "Full narration · latest generation";
 }
 
 function finishWithError(message) {
@@ -875,7 +913,14 @@ elements.voiceSelect.addEventListener("change", () => {
   updateInterface();
 });
 elements.previewVoice.addEventListener("click", previewVoice);
-elements.previewVoiceOverview.addEventListener("click", previewVoice);
+elements.previewVoiceOverview.addEventListener("click", () => {
+  if (state.completedJob?.downloads?.["narration.wav"]) {
+    elements.voicePreviewPlayer.pause();
+    elements.fullNarration.play().catch(() => showToast("Use the full narration player below."));
+  } else {
+    previewVoice();
+  }
+});
 elements.chooseScript.addEventListener("click", () => choose("script"));
 elements.chooseVideo.addEventListener("click", () => choose("video"));
 elements.chooseOutput.addEventListener("click", () => choose("folder"));
@@ -909,3 +954,6 @@ elements.quitStudio.addEventListener("click", async () => {
 });
 
 initialize();
+
+elements.fullNarration.addEventListener("play", () => elements.voicePreviewPlayer.pause());
+elements.voicePreviewPlayer.addEventListener("play", () => elements.fullNarration.pause());

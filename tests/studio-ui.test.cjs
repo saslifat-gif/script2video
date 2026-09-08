@@ -8,9 +8,13 @@ function studio() {
   const nodes = new Map();
   const context = vm.createContext({
     document: {
+      createElement() { return {}; },
       querySelector(selector) {
         if (!nodes.has(selector)) nodes.set(selector, {
           addEventListener() {},
+          replaceChildren() { this.children = []; },
+          append(node) { (this.children ||= []).push(node); },
+          setAttribute(name, value) { this[name] = value; },
           classList: { remove() {} },
           hidden: true,
           textContent: '',
@@ -79,3 +83,21 @@ test('Docker shows mounted-path guidance and hides desktop-only actions', async 
     assert.equal(nodes.get(id).hidden, true, id);
   }
 });
+
+
+test('finished narration has its full duration and downloadable script and subtitles', () => {
+  const { context, nodes } = studio();
+  context.job = { output: '/data/output/example', duration_ms: 19675, files: [],
+    downloads: { 'narration.wav': '/api/jobs/abc/files/narration.wav',
+      'captions.srt': '/api/jobs/abc/files/captions.srt',
+      'script.txt': '/api/jobs/abc/files/script.txt' } };
+  vm.runInContext('state.bootstrap = {container_mode: true}; finishSuccessfully(job)', context);
+  assert.equal(nodes.get('#export-panel').hidden, false);
+  assert.equal(nodes.get('#full-narration').src, jobUrl('narration.wav'));
+  assert.match(nodes.get('#full-duration').textContent, /19|20/);
+  assert.deepEqual(nodes.get('#export-links').children.map(x => x.download),
+    ['narration.wav', 'captions.srt', 'script.txt']);
+  assert.match(nodes.get('#export-location').textContent, /computer’s data\/output/);
+  assert.equal(nodes.get('#preview-voice-overview')['aria-label'], 'Play full narration');
+});
+function jobUrl(name) { return '/api/jobs/abc/files/' + name; }

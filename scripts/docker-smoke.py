@@ -68,9 +68,19 @@ try:
     assert (output / "narration.wav").stat().st_size > 44
     assert "-->" in (output / "captions.srt").read_text()
     assert json.loads((output / "manifest.json").read_text())["status"] == "success"
-    print(
-        "Docker startup, API protection, narration and caption checks passed"
-    )
+    assert job["duration_ms"] > 0
+    for name in ("captions.srt", "script.txt"):
+        with urlopen(base + job["downloads"][name], timeout=5) as response:
+            assert response.read()
+    with urlopen(
+        Request(
+            base + job["downloads"]["narration.wav"], headers={"Range": "bytes=0-3"}
+        ),
+        timeout=5,
+    ) as response:
+        assert response.status == 206
+        assert response.read() == b"RIFF"
+    print("Docker startup, API protection, narration and caption checks passed")
 finally:
     process.terminate()
     process.wait(timeout=10)
